@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+my %map = (
+    'one' => 1,
+    'two' => 2,
+    'three' => 3,
+    'four' => 4,
+    'five' => 5,
+    'six' => 6,
+    'seven' => 7,
+    'eight' => 8,
+    'nine' => 9
+);
+my $pattern = join("|",keys %map);
+
+my $sum = 0;
+while (<>) {
+    s/(?=(${pattern}))/$map{$1}/g;
+    s/^[^\d]*(?=(\d))|.*(\d)[^\d]*$/\1\2/g;
+    $sum += $_;
+}
+print "${sum}\n";

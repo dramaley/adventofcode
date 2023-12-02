@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $sum = 0;
+
+while (<>) {
+    my %max = ('red' => 0, 'green' => 0, 'blue' => 0);
+    foreach my $href (map { { reverse m/(\d+) (\w+)/g } }
+                      split /;/, (split /:/)[1]) {
+        while (my ($key, $val) = each %$href) {
+            $max{$key} = $val if $val > $max{$key};
+        }
+    }
+
+    my $partial = 1;
+    $partial *= $_ foreach (values %max);
+    $sum += $partial;
+}
+
+print "${sum}\n";
