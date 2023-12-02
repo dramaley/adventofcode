@@ -9,7 +9,6 @@ my $sum = 0;
 
 # Trying to minimize variables here just to be obtuse/clever
 LINE: while (<>) {
-    chomp;
     foreach my $href (map { { reverse m/(\d+) (\w+)/g } }
                       split /;/, (split /:/)[1]) {
         while (my ($key, $val) = each %$href) {
@@ -20,7 +19,3 @@ LINE: while (<>) {
     $sum += (m/^Game (\d+):/)[0];
 }
 print "${sum}\n";
-
-
-#    use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1;
-#    print Data::Dumper->Dump([ \@data ], [ '*data' ]); exit;
