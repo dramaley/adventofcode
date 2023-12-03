@@ -1,0 +1,61 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read the lines into an array and add padding
+my @input = map { chomp; ".${_}."; } <>;    # Add padding to the line ends
+my $strlen = length($input[0]);
+unshift @input, '.' x $strlen;              # Add a beginning line of padding
+push @input, '.' x $strlen;                 # Add an ending line of padding
+
+# Build an array associating position with the part number at that position
+my @position_to_part_nums;
+for (my $i = 1; $i < $#input; $i++) {
+    while ($input[$i] =~ m/(\d+)/g) {
+        my $gear = $1;
+        my $gear_pos = pos($input[$i]) - length($gear);
+        for (my $j = $gear_pos; $j < ($gear_pos + length($gear)); $j++) {
+            $position_to_part_nums[$i][$j] = $gear;
+        }
+    }
+}
+
+# Identify and process gears
+my $sum = 0;
+for (my $i = 1; $i < $#input; $i++) {
+    # Look for gears (asterisks)
+    while ($input[$i] =~ m/\*/g) {
+        # Retrieve the gear's position in the string
+        my $gear_pos = pos($input[$i]) - 1;
+
+        # Extract the stuff around the gear
+        my @search_strings = (map { substr($_, $gear_pos-1, 3) }
+                              @input[($i-1)..($i+1)]);
+
+	# Loop over the gear's vicinity looking for part numbers. When a number
+	# is found, calculate the coordinates of that number in the
+	# @position_to_part_nums array and save it in @partial.
+        my @partial = ();
+        for (my $j = 0; $j <= $#search_strings; $j++) {
+            while ($search_strings[$j] =~ m/(\d+)/g) {
+                # The 2-D slice under examination starts at position
+                # [$i-1][$gear_pos-1], then add appropriate offsets to get the
+                # position within @position_to_part_nums.
+                my $line = $i - 1 + $j;
+                my $char = ($gear_pos - 1) + (pos($search_strings[$j]) - 1);
+                push @partial, $position_to_part_nums[$line][$char];
+            }
+        }
+
+	# If exactly 2 part numbers were found, then process them.
+        if (@partial == 2) {
+	    $sum += $partial[0] * $partial[1];
+        }
+    }
+}
+print "${sum}\n";
+
+# I'm not real happy with this solution. It works. But requires multiple passes
+# through the data and just seems clunky. Meh.

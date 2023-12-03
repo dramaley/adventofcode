@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $symbols_regex = qr/[-#\$\%&*+\/=@]/;
+
+# Read the lines into an array and add padding
+my @input = map { chomp; ".${_}."; } <>;    # Add padding to the line ends
+my $strlen = length($input[0]);
+unshift @input, '.' x $strlen;              # Add a beginning line of padding
+push @input, '.' x $strlen;                 # Add an ending line of padding
+
+# Loop over the array, skipping the padding lines
+my $sum = 0;
+for (my $i = 1; $i < $#input; $i++) {
+    while ($input[$i] =~ m/(\d+)/g) {
+        # Retrieve the match and it's position in the string
+        my $part_num = $1;
+        my $part_pos = pos($input[$i]) - length($part_num);
+        # Extract all the stuff that might contain a "symbol" and check it
+        if (scalar (grep { /${symbols_regex}/ }
+                    map { substr($_, $part_pos - 1, length($part_num) + 2) }
+                    @input[($i-1)..($i+1)])) {
+            $sum += $part_num;
+        }
+    }
+}
+print "${sum}\n";
