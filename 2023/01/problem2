@@ -20,3 +20,6 @@ while (<>) {
     $sum += $_;
 }
 print "${sum}\n";
+
+# This relies on the fact that lookahead assertions do not consume characters,
+# so then "twone" will be correctly identified as "2" followed by "1".
