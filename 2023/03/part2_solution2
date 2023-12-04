@@ -1,0 +1,38 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read the lines into an array and add padding
+my @input = map { chomp; ".${_}."; } <>;    # Add padding to the line ends
+my $strlen = length($input[0]);
+unshift @input, '.' x $strlen;              # Add a beginning line of padding
+push @input, '.' x $strlen;                 # Add an ending line of padding
+
+# Use a hash but with keys that look like 2-dimensional array indices because
+# the post-processing will be more efficient.
+my %gears = ();
+for (my $i = 1; $i < $#input; $i++) {
+    while ($input[$i] =~ m/(\d+)/g) {
+        my $part_num = $1;
+        my $part_pos = pos($input[$i]) - length($part_num);
+
+        # Look for gears touching this part number
+	for (my $row = $i-1; $row <= $i+1; $row++) {
+	    my $segment = substr($input[$row], $part_pos - 1, length($part_num) + 2);
+	    while ($segment =~ m/\*/g) {
+		my $gear_pos = pos($segment) - 1 + $part_pos - 1;
+		push @{$gears{"${row},${gear_pos}"}}, $part_num;
+	    }
+	}
+    }
+}
+
+# At this point, %gears contains keys which denote each gear position, and
+# values consisting of a list of all part numbers touching that gear.
+my $sum = 0;
+while (my ($key, $val) = each %gears) {
+    $sum += $$val[0] * $$val[1] if @$val == 2;
+}
+print "${sum}\n";
