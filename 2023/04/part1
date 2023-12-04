@@ -1,0 +1,20 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $sum = 0;
+while (<>) {
+    my ($card, $winners, $have) = m/^Card\s+(\d+):\s*([ \d]+?)\s*\|\s*([ \d]+)/;
+    # Get a list of winning numbers
+    my (@winners) = sort { $a <=> $b } split / +/, $winners;
+    # Make a hash of numbers we have
+    my %have = (); @have{split / +/, $have} = ();
+
+    # Count how many winning numbers are in the numbers we have
+    my $count = (grep { exists $have{$_} } @winners);
+    # Score this scratchcard and add it to our total
+    $sum += int(2**($count-1));
+}
+print "${sum}\n";
