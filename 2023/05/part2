@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+
+use 5.10.0; # Needed for given/when statement...
+use strict;
+use warnings 'all';
+no warnings 'experimental';
+
+
+# Read the list of ranges of seeds
+my ($seeds_line) = <> =~ m/^seeds: ([ \d]+)$/;
+my @seeds_list = split / +/, $seeds_line;
+my @seed_ranges;
+push @seed_ranges, map { [ $$_[0], ($$_[0] + $$_[1] - 1) ] } [ splice @seeds_list, 0, 2 ] while @seeds_list;
+
+# Read the remaining input and store it in this series of maps.
+my @maps = ();
+my $i = -1;     # The first line is blank so this will get incremented to 0.
+while (my $line = <>) {
+    given ($line) {
+        when (/^$/) { $i++; next; }     # Process blank lines
+        when (/:/)  { next; }           # Process labels
+        default {
+            chomp $line;
+            # Destination range start, source range start, range length
+            my ($dst_start, $src_start, $range_len) = split / +/, $line;
+            # Calculate stats about each range to simplify things later
+            my %hash = ('first'  => $src_start,
+                        'last'   => $src_start + $range_len - 1,
+                        'offset' => $dst_start - $src_start);
+            push @{$maps[$i]}, \%hash;
+        }
+    }
+}
+# Sort each map by the source range start.
+@maps = map { [ sort { $a->{'first'} <=> $b->{'first'} } @$_ ] } @maps;
+
+foreach my $aref (@maps) {
+    my @new_ranges = ();
+    foreach my $range (@seed_ranges) {
+        my ($first, $last) = @$range;
+        my $flag = 1;
+        foreach my $href(@$aref) {
+            if ($first >= $$href{'first'} and $first <= $$href{'last'}) {
+                if ($last > $$href{'last'}) {
+                    push @seed_ranges, [ $$href{'last'} + 1, $last ];
+                    $last = $$href{'last'};
+                }
+                $first += $$href{'offset'};
+                $last += $$href{'offset'};
+                push @new_ranges, [ $first, $last ];
+                $flag = 0;
+                last;
+            }
+        }
+        push @new_ranges, [ $first, $last ] if $flag;
+    }
+    @seed_ranges = @new_ranges;
+}
+
+my $lowest = ${$seed_ranges[0]}[0];
+foreach my $range (@seed_ranges) {
+    my ($first) = @$range;
+    $lowest = $first if $first < $lowest;
+}
+print "$lowest\n";

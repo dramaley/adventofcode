@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+
+use 5.10.0; # Needed for given/when statement...
+use strict;
+use warnings 'all';
+no warnings 'experimental';
+
+
+# Read the list of seeds
+my ($seeds) = <> =~ m/^seeds: ([ \d]+)$/;
+my @seeds = sort { $a <=> $b } split / +/, $seeds;
+
+# Read the remaining input and store it in this series of maps.
+my @maps = ();
+my $i = -1;     # The first line is blank so this will get incremented to 0.
+while (my $line = <>) {
+    given ($line) {
+        when (/^$/) { $i++; next; }     # Process blank lines
+        when (/:/)  { next; }           # Process labels
+        default {
+            chomp $line;
+            # Destination range start, source range start, range length
+            my ($dst_start, $src_start, $range_len) = split / +/, $line;
+            # Calculate stats about each range to simplify things later
+            my %hash = (#'dst_first' => $dst_start,
+                        #'dst_last'  => $dst_start + $range_len - 1,
+                        'src_first' => $src_start,
+                        'src_last'  => $src_start + $range_len - 1,
+                        'offset'    => $dst_start - $src_start);
+            push @{$maps[$i]}, \%hash;
+        }
+    }
+}
+
+# Seeds will map to locations
+my @locations = ();
+foreach my $seed (@seeds) {
+  MAP:
+    foreach my $aref (@maps) {
+        foreach my $href(@$aref) {
+            if ($seed >= $$href{'src_first'} and $seed <= $$href{'src_last'}) {
+                $seed += $$href{'offset'};
+                next MAP;
+            }
+        }
+    }
+    push @locations, $seed;
+}
+
+my $minimum = (sort { $a <=> $b } @locations)[0];
+print "${minimum}\n";

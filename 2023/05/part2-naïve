@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+
+use 5.10.0; # Needed for given/when statement...
+use strict;
+use warnings 'all';
+no warnings 'experimental';
+
+
+# Read the list of ranges of seeds
+my ($seeds_line) = <> =~ m/^seeds: ([ \d]+)$/;
+my @seeds_list = split / +/, $seeds_line;
+my @seed_pairs;
+push @seed_pairs, [ splice @seeds_list, 0, 2 ] while @seeds_list;
+
+# Read the remaining input and store it in this series of maps.
+my @maps = ();
+my $i = -1;     # The first line is blank so this will get incremented to 0.
+while (my $line = <>) {
+    given ($line) {
+        when (/^$/) { $i++; next; }     # Process blank lines
+        when (/:/)  { next; }           # Process labels
+        default {
+            chomp $line;
+            # Destination range start, source range start, range length
+            my ($dst_start, $src_start, $range_len) = split / +/, $line;
+            # Calculate stats about each range to simplify things later
+            my %hash = (#'dst_first' => $dst_start,
+                        #'dst_last'  => $dst_start + $range_len - 1,
+                        'src_first' => $src_start,
+                        'src_last'  => $src_start + $range_len - 1,
+                        'offset'    => $dst_start - $src_start);
+            push @{$maps[$i]}, \%hash;
+        }
+    }
+}
+
+my $lowest;
+foreach my $pair (@seed_pairs) {
+    my $first_seed = $$pair[0];
+    my $last_seed = $$pair[0] + $$pair[1] - 1;
+    for (my $loop_seed = $first_seed; $loop_seed <= $last_seed; $loop_seed++) {
+        my $seed = $loop_seed; # Need a seed that can be modified
+      MAP:
+        foreach my $aref (@maps) {
+            foreach my $href(@$aref) {
+                if ($seed >= $$href{'src_first'} and $seed <= $$href{'src_last'}) {
+                    $seed += $$href{'offset'};
+                    next MAP;
+                }
+            }
+        }
+        $lowest = $seed if not defined $lowest or $seed < $lowest;
+    }
+}
+print "${lowest}\n";
