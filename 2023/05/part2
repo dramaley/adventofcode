@@ -3,10 +3,10 @@
 use 5.10.0; # Needed for given/when statement...
 use strict;
 use warnings 'all';
-no warnings 'experimental';
+no warnings 'experimental'; # Also needed for given/when statements. <sigh>
 
 # Read the list of ranges of seeds; this results in an array where each element
-# is a 2-element list containing the start and length of a seed range.
+# is a 2-element list containing the start and end of a seed range.
 my ($seeds_line) = <> =~ m/^seeds: ([ \d]+)$/;
 my @seeds_list = split / +/, $seeds_line;
 my @seed_ranges;
