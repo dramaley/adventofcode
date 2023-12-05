@@ -5,8 +5,8 @@ use strict;
 use warnings 'all';
 no warnings 'experimental';
 
-
-# Read the list of ranges of seeds
+# Read the list of ranges of seeds; this results in an array where each element
+# is a 2-element list containing the start and length of a seed range.
 my ($seeds_line) = <> =~ m/^seeds: ([ \d]+)$/;
 my @seeds_list = split / +/, $seeds_line;
 my @seed_ranges;
@@ -17,9 +17,9 @@ my @maps = ();
 my $i = -1;     # The first line is blank so this will get incremented to 0.
 while (my $line = <>) {
     given ($line) {
-        when (/^$/) { $i++; next; }     # Process blank lines
-        when (/:/)  { next; }           # Process labels
-        default {
+        when (/^$/) { $i++; next; }     # Blank lines mean move to the next map
+        when (/:/)  { next; }           # The labels aren't actually useful
+        default {                       # Parse the lines containing 3 numbers
             chomp $line;
             # Destination range start, source range start, range length
             my ($dst_start, $src_start, $range_len) = split / +/, $line;
@@ -31,35 +31,54 @@ while (my $line = <>) {
         }
     }
 }
-# Sort each map by the source range start.
+# Sort each map by the source range start. Probably not strictly necessary,
+# though there is an optimization we could do if both @seed_ranges and @maps
+# were sorted... maybe in a future update.
 @maps = map { [ sort { $a->{'first'} <=> $b->{'first'} } @$_ ] } @maps;
 
-foreach my $aref (@maps) {
+# Loop over each map ("seed-to-soil" map, then "soil-to-fertilizer" map, etc.).
+foreach my $map_ref (@maps) {
+    # Seed ranges that have already been processed in this iteration
     my @new_ranges = ();
+    # Loop over all existing seed ranges and process them with the current map
     foreach my $range (@seed_ranges) {
-        my ($first, $last) = @$range;
-        my $flag = 1;
-        foreach my $href(@$aref) {
-            if ($first >= $$href{'first'} and $first <= $$href{'last'}) {
-                if ($last > $$href{'last'}) {
-                    push @seed_ranges, [ $$href{'last'} + 1, $last ];
-                    $last = $$href{'last'};
+        my ($first, $last) = @$range;   # Split these out for legibility
+        my $found = 0;                  # Flag whether the current map matched
+        # Loop over each individual mapping within the current map. So these
+        # are the hashes saved earlier, with keys 'first', 'last', 'offset'.
+        foreach my $mapping (@$map_ref) {
+	    # If the start of our seed range falls within this mapping...
+            if ($first >= $$mapping{'first'} and $first <= $$mapping{'last'}) {
+		# If the end of our seed range is beyond the end of this mapping
+		# then we need to split the seed range into 2 seed ranges.
+		# Calculate the part that is beyond this mapping and push it
+		# onto @seed_ranges for future processing. Then adjust the end
+		# of the range we're looking at right now to be what's left.
+                if ($last > $$mapping{'last'}) {
+                    push @seed_ranges, [ $$mapping{'last'} + 1, $last ];
+                    $last = $$mapping{'last'};
                 }
-                $first += $$href{'offset'};
-                $last += $$href{'offset'};
+		# Take our seed range and put it through the mapping
+                $first += $$mapping{'offset'};
+                $last += $$mapping{'offset'};
+		# The current seed range is all done, save it for the next map
                 push @new_ranges, [ $first, $last ];
-                $flag = 0;
+		# Set the flag that we found a map for the seed range.
+                $found = 1;
+		# Stop processing this map since we've already found a match
                 last;
             }
         }
-        push @new_ranges, [ $first, $last ] if $flag;
+        # No match for this range, so just pass it through to the next stage.
+        push @new_ranges, [ $first, $last ] if not $found;
     }
+    # Prepare to process the next map
     @seed_ranges = @new_ranges;
 }
 
-my $lowest = ${$seed_ranges[0]}[0];
-foreach my $range (@seed_ranges) {
-    my ($first) = @$range;
-    $lowest = $first if $first < $lowest;
-}
+# Now we just have to figure out what the lowest seed was.
+# Reading the parenthesized portion right-to-left, take the @seed_ranges and
+# extract the first element of each pair (the bottom  of that range), and sort
+# all those numerically. Then return the first one (element 0).
+my $lowest = (sort { $a <=> $b } map { $$_[0] } @seed_ranges)[0];
 print "$lowest\n";
