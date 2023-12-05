@@ -18,7 +18,7 @@ while (<>) {
     my $winning_count = (grep { exists $have{$_} } @winners);
 
     for (my $i = 1; $i <= $winning_count; $i++) {
-	$num_cards[$card + $i] += $num_cards[$card];
+        $num_cards[$card + $i] += $num_cards[$card];
     }
 }
 

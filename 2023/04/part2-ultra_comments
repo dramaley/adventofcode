@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This array associates the card number (1, 2, 3 ... 201) with how many copies
+# of that card we have. There is no Card 0 in the input, so initialize the 0
+# index with a count of 0.
+my @num_cards = (0);
+# Use the line input operator to read all input (whether STDIN or files passed
+# on the command line, whatever) line-by-line.
+while (<>) {
+    # Match the 3 important parts of the line. Note that $winners and $have
+    # each contain multiple numbers separated by spaces.
+    my ($card, $winners, $have) = m/^Card\s+(\d+):\s*([ \d]+?)\s*\|\s*([ \d]+)/;
+    # Count this card.
+    $num_cards[$card]++;
+
+    # Split the list of winning numbers from a string into an array. The sort
+    # probably isn't necessary, but has the side effect of casting the strings
+    # into numbers (which also isn't necessary because Perl is magical).
+    my (@winners) = sort { $a <=> $b } split / +/, $winners;
+    # Make a hash of numbers we have. The numbers we have will form the keys.
+    # Hash values are just empty because they won't be used.
+    my %have = (); @have{split / +/, $have} = ();
+
+    # Count how many winning numbers are in the numbers we have by scanning the
+    # @winners array and checking whether number exists as a key in %have. This
+    # results in a list of numbers that won, which when cast to a scalar becomes
+    # the count of how many numbers won.
+    my $winning_count = (grep { exists $have{$_} } @winners);
+
+    # Now that we know how many winning numbers the current card has, here's the
+    # crux of the program. For the following $winning_count cards, add to them
+    # however many copies of the current card we have. This satisfies the
+    # cascade effect of the original problem, where a winning card gets
+    # multiplied over future cards.
+    for (my $i = 1; $i <= $winning_count; $i++) {
+        $num_cards[$card + $i] += $num_cards[$card];
+    }
+}
+
+# Now that @num_cards contains a list of how many copies of each card we have,
+# just add them all up and print the result.
+my $sum = 0;
+$sum += $_ foreach @num_cards;
+print "${sum}\n";
