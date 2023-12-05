@@ -47,25 +47,25 @@ foreach my $map_ref (@maps) {
         # Loop over each individual mapping within the current map. So these
         # are the hashes saved earlier, with keys 'first', 'last', 'offset'.
         foreach my $mapping (@$map_ref) {
-	    # If the start of our seed range falls within this mapping...
+            # If the start of our seed range falls within this mapping...
             if ($first >= $$mapping{'first'} and $first <= $$mapping{'last'}) {
-		# If the end of our seed range is beyond the end of this mapping
-		# then we need to split the seed range into 2 seed ranges.
-		# Calculate the part that is beyond this mapping and push it
-		# onto @seed_ranges for future processing. Then adjust the end
-		# of the range we're looking at right now to be what's left.
+                # If the end of our seed range is beyond the end of this mapping
+                # then we need to split the seed range into 2 seed ranges.
+                # Calculate the part that is beyond this mapping and push it
+                # onto @seed_ranges for future processing. Then adjust the end
+                # of the range we're looking at right now to be what's left.
                 if ($last > $$mapping{'last'}) {
                     push @seed_ranges, [ $$mapping{'last'} + 1, $last ];
                     $last = $$mapping{'last'};
                 }
-		# Take our seed range and put it through the mapping
+                # Take our seed range and put it through the mapping
                 $first += $$mapping{'offset'};
                 $last += $$mapping{'offset'};
-		# The current seed range is all done, save it for the next map
+                # The current seed range is all done, save it for the next map
                 push @new_ranges, [ $first, $last ];
-		# Set the flag that we found a map for the seed range.
+                # Set the flag that we found a map for the seed range.
                 $found = 1;
-		# Stop processing this map since we've already found a match
+                # Stop processing this map since we've already found a match
                 last;
             }
         }
@@ -78,7 +78,7 @@ foreach my $map_ref (@maps) {
 
 # Now we just have to figure out what the lowest seed was.
 # Reading the parenthesized portion right-to-left, take the @seed_ranges and
-# extract the first element of each pair (the bottom  of that range), and sort
+# extract the first element of each pair (the bottom of that range), and sort
 # all those numerically. Then return the first one (element 0).
 my $lowest = (sort { $a <=> $b } map { $$_[0] } @seed_ranges)[0];
 print "$lowest\n";
