@@ -8,21 +8,8 @@ use warnings 'all';
 (my $time = (<> =~ m/^Time: *([ \d]+)$/)[0]) =~ s/ //g;
 (my $distance = (<> =~ m/^Distance: *([ \d]+)$/)[0]) =~ s/ //g;
 
-# Declare stuff
-my ($first, $last, $i);
+# Find the first and last winning races using the quadratic formula
+my $first = int(($time-sqrt($time**2-4*$distance))/2);
+my $last = int(($time+sqrt($time**2-4*$distance))/2);
 
-# Find the first winning race
-$i = 0;
-until ($first) {
-    $first = $i if ($i * ($time - $i)) > $distance;
-    $i++;
-}
-
-# Find the last winning race
-$i = $time;
-until ($last) {
-    $last = $i if ($i * ($time - $i)) > $distance;
-    $i--;
-}
-
-print $last-$first+1,"\n";
+print $last-$first,"\n";
