@@ -5,8 +5,8 @@ use strict;
 use warnings 'all';
 
 # Parse input
-(my $time = (<> =~ m/^Time: *([ \d]+)$/)[0]) =~ s/ //g;
-(my $distance = (<> =~ m/^Distance: *([ \d]+)$/)[0]) =~ s/ //g;
+(my $time = <>) =~ s/[^\d]+//g;
+(my $distance = <>) =~ s/[^\d]+//g;
 
 # Find the first and last winning races using the quadratic formula
 my $first = int(($time-sqrt($time**2-4*$distance))/2);
