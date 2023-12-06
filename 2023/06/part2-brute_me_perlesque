@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Parse input
+(my $time = (<> =~ m/^Time: *([ \d]+)$/)[0]) =~ s/ //g;
+(my $distance = (<> =~ m/^Distance: *([ \d]+)$/)[0]) =~ s/ //g;
+
+# A pure brute-force solution, no optimization, more idiomatic solution
+my $wins = scalar grep { ($_ * ($time - $_)) > $distance } 0..$time;
+print "${wins}\n";
