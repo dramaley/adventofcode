@@ -68,6 +68,41 @@ foreach my $map_ref (@maps) {
                 # Stop processing this map since we've already found a match
                 last;
             }
+            # If the end of the seed range falls within this mapping
+            elsif ($last >= $$mapping{'first'} and $last <= $$mapping{'last'}) {
+                # No need to check if the beginning of the seed range is in the
+                # mapping as that was covered by the previous condition. So we
+                # know the beginning is before the mapping and can split the
+                # range accordingly.
+                push @seed_ranges, [ $first, $$mapping{'first'} - 1 ];
+                $first = $$mapping{'first'};
+                # Take our seed range and put it through the mapping
+                $first += $$mapping{'offset'};
+                $last += $$mapping{'offset'};
+                # The current seed range is all done, save it for the next map
+                push @new_ranges, [ $first, $last ];
+                # Set the flag that we found a map for the seed range.
+                $found = 1;
+                # Stop processing this map since we've already found a match
+                last;
+            }
+            # If the seed range is larger than the mapping
+            elsif ($first < $$mapping{'first'} and $last > $$mapping{'last'}) {
+                # In this case we'll have to split the seed range into 3 chunks.
+                # Process the range before the mapping
+                push @seed_ranges, [ $first, $$mapping{'first'} - 1 ];
+                $first = $$mapping{'first'};
+                # Process the range after the mapping
+                push @seed_ranges, [ $$mapping{'last'} + 1, $last ];
+                $last = $$mapping{'last'};
+                # Process the range that intersects with the mapping
+                $first += $$mapping{'offset'};
+                $last += $$mapping{'offset'};
+                push @new_ranges, [ $first, $last ];
+                # Cleanup
+                $found = 1;
+                last;
+            }
         }
         # No match for this range, so just pass it through to the next stage.
         push @new_ranges, [ $first, $last ] if not $found;
