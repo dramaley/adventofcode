@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Parse input
+(my $time = (<> =~ m/^Time: *([ \d]+)$/)[0]) =~ s/ //g;
+(my $distance = (<> =~ m/^Distance: *([ \d]+)$/)[0]) =~ s/ //g;
+
+# Declare stuff
+my ($first, $last, $i);
+
+# Find the first winning race
+$i = 0;
+until ($first) {
+    $first = $i if ($i * ($time - $i)) > $distance;
+    $i++;
+}
+
+# Find the last winning race
+$i = $time;
+until ($last) {
+    $last = $i if ($i * ($time - $i)) > $distance;
+    $i--;
+}
+
+print $last-$first+1,"\n";
