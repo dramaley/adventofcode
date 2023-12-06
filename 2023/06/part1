@@ -5,17 +5,13 @@ use strict;
 use warnings 'all';
 
 # Parse input
-my ($times) = <> =~ m/^Time: *([ \d]+)$/;
-my @times = split / +/, $times;
-my ($distances) = <> =~ m/^Distance: *([ \d]+)$/;
-my @distances = split / +/, $distances;
+my @times = split / +/, (<> =~ m/^Time: *([ \d]+)$/)[0];
+my @distances = split / +/, (<> =~ m/^Distance: *([ \d]+)$/)[0];
 
 my @wins = ();
 foreach (my $i = 0; $i < @times ; $i++) {
-    my $time = $times[$i];
-    my $distance = $distances[$i];
     # Loop over how long we hold the button
-    push @wins, scalar grep { ($_ * ($time - $_)) > $distance } 0..$time;
+    push @wins, scalar grep { ($_ * ($times[$i] - $_)) > $distances[$i] } 0..$times[$i];
 }
 
 my $total = 1;
