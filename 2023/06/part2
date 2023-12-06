@@ -9,7 +9,7 @@ use warnings 'all';
 (my $distance = <>) =~ s/[^\d]+//g;
 
 # Find the first and last winning races using the quadratic formula
-my $first = int(($time-sqrt($time**2-4*$distance))/2);
-my $last = int(($time+sqrt($time**2-4*$distance))/2);
+my $first = int(($time - sqrt($time ** 2 - 4 * $distance)) / 2);
+my $last = int(($time + sqrt($time ** 2 - 4 * $distance)) / 2);
 
 print $last-$first,"\n";
