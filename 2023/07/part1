@@ -1,0 +1,73 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Define the types of hands and their relative rank. Note that constants in
+# Perl are kind of a pain in the posterior.
+use constant {
+    FIVE_OF_A_KIND  => 6,
+    FOUR_OF_A_KIND  => 5,
+    FULL_HOUSE      => 4,
+    THREE_OF_A_KIND => 3,
+    TWO_PAIR        => 2,
+    ONE_PAIR        => 1,
+    HIGH_CARD       => 0
+};
+
+# Relative value of the cards. Not using 0 or 1 just to keep them aligned so
+# that debugging is easier for humans.
+our %card_vals = ('2' => 2,  '3' => 3,  '4' => 4, '5' => 5,  '6' => 6,
+                  '7' => 7,  '8' => 8,  '9' => 9, 'T' => 10, 'J' => 11,
+                  'Q' => 12, 'K' => 13, 'A' => 14);
+
+# ------------------------------------------------------------------------------
+#   Given a hand, return it's type (refer to the constants)
+# ------------------------------------------------------------------------------
+sub hand2type {
+    my ($hand) = @_;
+    # How many copies of each card we have
+    my %counts = ();
+    $counts{$_}++ foreach split //, $hand;
+    # Associate how many copies of each card we have with a count of how many
+    # types of those cards there are. So if we have 1 pair, $types[2]=1. But if
+    # we have 2 pairs, then $types[2]=2.
+    my @types = (0) x 6;
+    $types[$_]++ foreach values %counts;
+    # Figure out what type of hand we have
+    SWITCH: {
+        $types[5]               && do { return FIVE_OF_A_KIND;  };
+        $types[4]               && do { return FOUR_OF_A_KIND;  };
+        $types[3] and $types[2] && do { return FULL_HOUSE;      };
+        $types[3]               && do { return THREE_OF_A_KIND; };
+        $types[2] == 2          && do { return TWO_PAIR;        };
+        $types[2]               && do { return ONE_PAIR;        };
+        1                       && do { return HIGH_CARD;       };
+    }
+}
+
+
+# Read the input
+my @data = ();
+while (<>) {
+    chomp;
+    my ($hand, $bid) = split / +/;
+    # Convert the hand into hexadecimal notation for faster sorting later
+    my $hex = sprintf('%x%x%x%x%x', map { $card_vals{$_} } split //, $hand);
+    push @data, {'bid' => $bid, 'hand' => $hand, 'hex' => $hex};
+}
+
+# Determine each hand's type
+$$_{'type'} = &hand2type($$_{'hand'}) foreach @data;
+
+# Sort hands, first by type of hand, then by hex value of the hand
+@data = sort { ($a->{'type'} <=> $b->{'type'} or
+                $a->{'hex'} cmp $b->{'hex'})     } @data;
+
+# Figure out the winnings
+my $sum = 0;
+for (my $i = 0; $i < @data; $i++) {
+    $sum += ($i+1) * ${data[$i]}{'bid'};
+}
+print "${sum}\n";
