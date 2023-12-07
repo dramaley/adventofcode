@@ -23,7 +23,7 @@ our %card_vals = ('J' => 1,  '2' => 2,  '3' => 3, '4' => 4, '5' => 5,
                   'Q' => 11, 'K' => 12, 'A' => 13);
 
 # ------------------------------------------------------------------------------
-#   Given a hand, return it's type (refer to the constants)
+#   Given a hand, return its type (refer to the constants)
 # ------------------------------------------------------------------------------
 sub hand2type {
     my ($hand) = @_;
