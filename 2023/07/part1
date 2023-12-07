@@ -27,14 +27,17 @@ our %card_vals = ('2' => 2,  '3' => 3,  '4' => 4, '5' => 5,  '6' => 6,
 # ------------------------------------------------------------------------------
 sub hand2type {
     my ($hand) = @_;
+
     # How many copies of each card we have
     my %counts = ();
     $counts{$_}++ foreach split //, $hand;
+
     # Associate how many copies of each card we have with a count of how many
-    # types of those cards there are. So if we have 1 pair, $types[2]=1. But if
-    # we have 2 pairs, then $types[2]=2.
+    # types of those cards there are.
+    # So one pair implies $types[2]=1. But two pairs means $types[2]=2.
     my @types = (0) x 6;
     $types[$_]++ foreach values %counts;
+
     # Figure out what type of hand we have
     SWITCH: {
         $types[5]               && do { return FIVE_OF_A_KIND;  };
@@ -55,11 +58,12 @@ while (<>) {
     my ($hand, $bid) = split / +/;
     # Convert the hand into hexadecimal notation for faster sorting later
     my $hex = sprintf('%x%x%x%x%x', map { $card_vals{$_} } split //, $hand);
-    push @data, {'bid' => $bid, 'hand' => $hand, 'hex' => $hex};
-}
+    # Determine this hand's type
+    my $type = &hand2type($hand);
 
-# Determine each hand's type
-$$_{'type'} = &hand2type($$_{'hand'}) foreach @data;
+    push @data, { 'bid' => $bid, 'hand' => $hand,
+                  'hex' => $hex, 'type' => $type };
+}
 
 # Sort hands, first by type of hand, then by hex value of the hand
 @data = sort { ($a->{'type'} <=> $b->{'type'} or
@@ -67,7 +71,5 @@ $$_{'type'} = &hand2type($$_{'hand'}) foreach @data;
 
 # Figure out the winnings
 my $sum = 0;
-for (my $i = 0; $i < @data; $i++) {
-    $sum += ($i+1) * ${data[$i]}{'bid'};
-}
+$sum += ($_ + 1) * ${data[$_]}{'bid'} foreach 0..$#data;
 print "${sum}\n";
