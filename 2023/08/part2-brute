@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read input
+my @instructions = split //, (<> =~ m/([LR]+)/)[0];
+my %network = ();
+while (<>) {
+    next if not /^(\w{3}) = \((\w{3}), (\w{3})\)$/;
+    $network{$1} = { 'L' => $2, 'R' => $3 };
+}
+
+# Brute force method. Note that this will take awhile with the given input.
+my $steps = 0;
+my @elements = grep { /A$/ } keys %network;
+until (@elements == grep { /Z$/ } @elements) {
+    my $instruction = $instructions[$steps % @instructions];
+    @elements = map { $network{$_}{$instruction} } @elements;
+    $steps++;
+}
+print "${steps}\n";

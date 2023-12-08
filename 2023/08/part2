@@ -1,0 +1,34 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Math::Utils qw/lcm/;
+
+our (@instructions, %network);
+
+# ------------------------------------------------------------------------------
+#   Given an element, return how many steps it took to solve it
+# ------------------------------------------------------------------------------
+sub solve {
+    my ($element) = @_;
+    my $steps = 0;
+    until ($element =~ /Z$/) {
+        my $instruction = $instructions[$steps % @instructions];
+        $element = $network{$element}{$instruction};
+        $steps++;
+    }
+    return $steps;
+}
+
+
+# Read input
+@instructions = split //, (<> =~ m/([LR]+)/)[0];
+while (<>) {
+    next if not /^(\w{3}) = \((\w{3}), (\w{3})\)$/;
+    $network{$1} = { 'L' => $2, 'R' => $3 };
+}
+
+# Get a list of solutions and find least-common-multiple
+my @solutions = map { &solve($_) } grep { /A$/ } keys %network;
+print lcm(@solutions), "\n";

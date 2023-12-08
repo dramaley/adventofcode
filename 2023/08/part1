@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read input
+my @instructions = split //, (<> =~ m/([LR]+)/)[0];
+my %network = ();
+while (<>) {
+    next if not /^([A-Z]{3}) = \(([A-Z]{3}), ([A-Z]{3})\)$/;
+    $network{$1} = { 'L' => $2, 'R' => $3 };
+}
+
+# Follow the instructions over the network
+my $steps = 0;
+my $element = 'AAA';
+until ($element eq 'ZZZ') {
+    my $instruction = $instructions[$steps % @instructions];
+    $element = $network{$element}{$instruction};
+    $steps++;
+}
+print "${steps}\n";

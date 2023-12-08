@@ -10,9 +10,9 @@ our %card_vals = ('J' => 1,  '2' => 2,  '3' => 3, '4' => 4, '5' => 5,
                   'Q' => 11, 'K' => 12, 'A' => 13);
 
 # ------------------------------------------------------------------------------
-#   Given a hand, return its type (refer to the constants)
+#   Given a hand, return its ranking
 # ------------------------------------------------------------------------------
-sub hand2type {
+sub hand2ranking {
     my ($hand) = @_;
 
     # How many copies of each card we have
@@ -51,7 +51,7 @@ while (<>) {
     # Convert the hand into hexadecimal notation for faster sorting later
     my $hex = sprintf('%x%x%x%x%x', map { $card_vals{$_} } split //, $hand);
     # Determine this hand's type
-    my $type = &hand2type($hand);
+    my $type = &hand2ranking($hand);
 
     push @data, { 'bid' => $bid, 'hand' => $hand,
                   'hex' => $hex, 'type' => $type };
