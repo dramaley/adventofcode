@@ -4,18 +4,6 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
-# Define the types of hands and their relative rank. Note that constants in
-# Perl are kind of a pain in the posterior.
-use constant {
-    FIVE_OF_A_KIND  => 6,
-    FOUR_OF_A_KIND  => 5,
-    FULL_HOUSE      => 4,
-    THREE_OF_A_KIND => 3,
-    TWO_PAIR        => 2,
-    ONE_PAIR        => 1,
-    HIGH_CARD       => 0
-};
-
 # Relative value of the cards.
 our %card_vals = ('J' => 1,  '2' => 2,  '3' => 3, '4' => 4, '5' => 5,
                   '6' => 6,  '7' => 7,  '8' => 8, '9' => 9, 'T' => 10,
@@ -30,34 +18,27 @@ sub hand2type {
     # How many copies of each card we have
     my %counts = ();
     $counts{$_}++ foreach split //, $hand;
-
-    # Handle the jokers. But don't mess with them if there are 5, since there
-    # won't be other cards to convert them into.
+    # Handle jokers
     if ($counts{'J'} and $counts{'J'} != 5) {
-        # Remove the jokers from the hand
-        my $jokers = $counts{'J'};
-        delete $counts{'J'};
-        # Find the remaining card with the highest count
+        my $jokers = delete $counts{'J'};
         my $highest = (sort { $counts{$a} <=> $counts{$b} } keys(%counts))[-1];
-        # Transform the jokers into that card
         $counts{$highest} += $jokers;
     }
 
     # Associate how many copies of each card we have with a count of how many
     # types of those cards there are.
-    # So one pair implies $types[2]=1. But two pairs means $types[2]=2.
     my @types = (0) x 6;
     $types[$_]++ foreach values %counts;
 
     # Figure out what type of hand we have
     SWITCH: {
-        $types[5]               && do { return FIVE_OF_A_KIND;  };
-        $types[4]               && do { return FOUR_OF_A_KIND;  };
-        $types[3] and $types[2] && do { return FULL_HOUSE;      };
-        $types[3]               && do { return THREE_OF_A_KIND; };
-        $types[2] == 2          && do { return TWO_PAIR;        };
-        $types[2]               && do { return ONE_PAIR;        };
-        1                       && do { return HIGH_CARD;       };
+        $types[5]               && do { return 6; }; # Five of a kind
+        $types[4]               && do { return 5; }; # Four of a kind
+        $types[3] and $types[2] && do { return 4; }; # Full house
+        $types[3]               && do { return 3; }; # Three of a kind
+        $types[2] == 2          && do { return 2; }; # Two pair
+        $types[2]               && do { return 1; }; # One pair
+        1                       && do { return 0; }; # High card
     }
 }
 
