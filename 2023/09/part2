@@ -1,0 +1,36 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Build @data as a 3D array. First index is the dataset, second is the
+# extrapolation, third is the actual elements of the history.
+my @data = map { chomp; [[ split / +/ ]] } <>;
+
+# Process the sequences
+for (my $i = 0; $i < @data; $i++) {                             # dataset
+    for (my $j = 0; $j < @{$data[$i]}; $j++) {                  # extrapolation
+        my $sum = 0;
+        for (my $k = 0; $k < @{$data[$i][$j]} - 1; $k++) {      # elements
+            my $val = ${data[$i][$j][$k+1]} - ${data[$i][$j][$k]};
+            push @{$data[$i][$j+1]}, $val;
+            $sum += $val;
+        }
+        last if $sum == 0;      # Move on since we found a row of all zeroes
+    }
+}
+
+# Now add an entry to the beginning of each sequence
+for (my $i = 0; $i < @data; $i++) {                             # dataset
+    my $subtract = 0;
+    for (my $j = @{$data[$i]} - 1; $j >= 0; $j--) {             # extrapolation
+        $subtract = $data[$i][$j][0] - $subtract;
+        unshift @{$data[$i][$j]}, $subtract;
+    }
+}
+
+# Find the sum
+my $sum = 0;
+$sum += $_ foreach map { $$_[0][0] } @data;
+print "${sum}\n";
