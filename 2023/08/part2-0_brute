@@ -1,4 +1,8 @@
 #!/usr/bin/perl
+#
+# This was my initial solution to part 2, to brute force it. I soon realized
+# it would require a non-trivial amount of time to run, so i looked for other
+# solutions.
 
 use 5.8.1;
 use strict;

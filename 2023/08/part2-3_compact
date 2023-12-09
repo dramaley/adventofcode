@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+#
+# Here's my most compact version. The fact that it looks like line noise is a
+# feature. Think of this as the _Jurassic Park_ version: "so preoccupied with
+# whether or not they could, they didn't stop to think if they should."
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Math::Utils qw/lcm/;
+
+# Read input. Cast to integer isn't necessary but may improve performance.
+my @instrs = map { tr/LR/01/; int($_) } split //, (<> =~ m/([LR]+)/)[0];
+my %network = map { /^(\w{3}) = \((\w{3}), (\w{3})\)$/ ? ($1, [$2, $3]) : () } <>;
+
+# Get a list of solutions and find least-common-multiple
+my @solutions = map { my $s = 0; $_ = $network{$_}[$instrs[$s++ % @instrs]] until m/Z$/; $s; } grep { /A$/ } keys %network;
+print lcm(@solutions), "\n";

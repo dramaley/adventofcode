@@ -1,4 +1,8 @@
 #!/usr/bin/perl
+#
+# This was my first solution to part 2 that runs fast enough to be useful.
+# I wasn't super happy with it though because the code is kind of loose, and it
+# uses hashes where i think a simpler array would be more performant.
 
 use 5.8.1;
 use strict;
