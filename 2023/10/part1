@@ -1,0 +1,98 @@
+#!/usr/bin/perl
+#
+# Throughout this code a 2-dimensional array will be used to represent a space.
+# (ns, ew) will be used to denote position within the space rather than the more
+# conventional (x, y), because the axes differ in orientation from a normal
+# graph and use of (x, y) can become confusing. "nw" is the north-south axis,
+# with south being the positive direction, and "ew" is the east-west axis, with
+# east being positive. This unusual orientation was chosen just because that is
+# the most natural way to read in the input.
+
+use 5.14.0;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+our @data;
+
+# ------------------------------------------------------------------------------
+#  Given our current and previous locations' (i, j) coordinates, find a valid
+#  next position and return that coordinate.
+# ------------------------------------------------------------------------------
+sub next_position {
+    my ($curr_ns, $curr_ew, $prev_ns, $prev_ew) = @_;
+    my $curr_tile = $data[$curr_ns][$curr_ew];
+
+    #print "Currently at: (${curr_ns}, ${curr_ew})\n";
+    #print "\tPrevious tile: ",$data[$prev_ns][$prev_ew],"\n";
+    #print "\tCurrent tile: ${curr_tile}\n";
+
+    # Look north
+    {   my ($next_ns, $next_ew) = ($curr_ns - 1, $curr_ew);
+        my $next_tile = $data[$next_ns][$next_ew];
+        #print "\tChecking tile (north): ${next_tile}\n";
+        # True if we're walking back towards whence we came, false otherwise
+        my $back = ($next_ns == $prev_ns and $next_ew == $prev_ew);
+        return ($next_ns, $next_ew)
+            if $curr_tile =~ m/[|LJS]/ and $next_tile =~ m/[|7FS]/ and not $back;
+    }
+
+    # Look south
+    {   my ($next_ns, $next_ew) = ($curr_ns + 1, $curr_ew);
+        my $next_tile = $data[$next_ns][$next_ew];
+        #print "\tChecking tile (south): ${next_tile}\n";
+        # True if we're walking back towards whence we came, false otherwise
+        my $back = ($next_ns == $prev_ns and $next_ew == $prev_ew);
+        return ($next_ns, $next_ew)
+            if $curr_tile =~ m/[|7FS]/ and $next_tile =~ m/[|LJS]/ and not $back;
+    }
+
+    # Look east
+    {   my ($next_ns, $next_ew) = ($curr_ns, $curr_ew + 1);
+        my $next_tile = $data[$next_ns][$next_ew];
+        #print "\tChecking tile (east): ${next_tile}\n";
+        # True if we're walking back towards whence we came, false otherwise
+        my $back = ($next_ns == $prev_ns and $next_ew == $prev_ew);
+        return ($next_ns, $next_ew)
+            if $curr_tile =~ m/[-LFS]/ and $next_tile =~ m/[-J7S]/ and not $back;
+    }
+
+    # Look west
+    {   my ($next_ns, $next_ew) = ($curr_ns, $curr_ew - 1);
+        my $next_tile = $data[$next_ns][$next_ew];
+        #print "\tChecking tile (west): ${next_tile}\n";
+        # True if we're walking back towards whence we came, false otherwise
+        my $back = ($next_ns == $prev_ns and $next_ew == $prev_ew);
+        return ($next_ns, $next_ew)
+            if $curr_tile =~ m/[-J7S]/ and $next_tile =~ m/[-LFS]/ and not $back;
+    }
+
+    die 'Non-contiguous loop';
+}
+
+
+# Read input with extra padding
+@data = map { chomp; [ '.', split(//), '.' ]; } <>;
+unshift @data, [ ('.') x @{$data[0]} ];
+push @data, [ ('.') x @{$data[0]} ];
+
+# Find the start
+my @start;
+{
+    my ($ns) = grep { grep { /S/ } @{$data[$_]} } 0..$#data;
+    my ($ew) = grep { $data[$ns][$_] eq 'S' } 0..$#{$data[$ns]};
+    @start = ($ns, $ew);
+}
+
+# Traverse the map until back at the start
+my @previous = @start;
+my @current = @start;
+my $count = 0;
+do {
+    my (@next) = &next_position(@current, @previous);
+    @previous = @current;
+    @current = @next;
+    $count++;
+} until @current ~~ @start;
+
+print '', ($count / 2), "\n";
