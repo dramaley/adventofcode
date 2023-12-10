@@ -10,6 +10,8 @@
 
 use 5.14.0;
 use strict;
+use utf8;                               # Source contains UTF-8
+use open ':std', ':encoding(UTF-8)';    # The terminal supports UTF-8
 use warnings 'all';
 use experimental 'smartmatch';
 
@@ -61,6 +63,37 @@ sub next_position {
     die 'Non-contiguous loop';
 }
 
+# ------------------------------------------------------------------------------
+#  Given a map location with a path character, make it pretty by substituting
+#  with line drawing characters. Note that "S" will pass through.
+# ------------------------------------------------------------------------------
+sub prettify {
+    my ($ns, $ew) = @_;
+    $data[$ns][$ew] =~ tr/-|LJ7F/─│└┘┐┌/;
+    # Clunkier way that works without "use utf8; use open..." in the headers:
+    #my %repl = ('|'=>'│','-'=>'─','L'=>'└','J'=>'┘','7'=>'┐','F'=>'┌',);
+    #$data[$ns][$ew] =~ s/([-|LJ7F])/$repl{$1}/;
+}
+
+# ------------------------------------------------------------------------------
+#   Prettifying the origin requires special care.
+# ------------------------------------------------------------------------------
+sub prettify_S {
+    my ($ns, $ew) = @_;
+    # Determine in which directions we connect to the rest of the path
+    my $north = ($data[$ns-1][$ew] =~ m/[│┌┐]/);
+    my $south = ($data[$ns+1][$ew] =~ m/[│└┘]/);
+    my $east = ($data[$ns][$ew+1] =~ m/[─┘┐]/);
+    my $west = ($data[$ns][$ew-1] =~ m/[─└┌]/);
+    # Substitute the appropriate character
+    $data[$ns][$ew] = '│' if $north and $south;
+    $data[$ns][$ew] = '─' if $east and $west;
+    $data[$ns][$ew] = '└' if $north and $east;
+    $data[$ns][$ew] = '┌' if $south and $east;
+    $data[$ns][$ew] = '┐' if $south and $west;
+    $data[$ns][$ew] = '┘' if $north and $west;
+}
+
 
 # Read input with extra padding so we don't have to worry about edges
 @data = map { chomp; [ '.', split(//), '.' ]; } <>;
@@ -75,15 +108,39 @@ my @start;
     @start = ($ns, $ew);
 }
 
-# Traverse the map until back at the start
+# Traverse the map until back at the start, prettifying it along the path
 my @previous = @start;
 my @current = @start;
-my $count = 0;
 do {
     my (@next) = &next_position(@current, @previous);
+    &prettify(@current);
     @previous = @current;
     @current = @next;
-    $count++;
 } until @current ~~ @start;
+&prettify_S(@start);
 
-print '', ($count / 2), "\n";
+# Remove the border to save some processing later
+pop @data;
+shift @data;
+foreach (@data) { pop @$_; shift @$_; }
+
+# Use ray-casting to check each point to see if it is inside or outside
+my $count = 0;
+foreach my $row (@data) {
+    for (my $i = 0; $i < @$row; $i++) {
+        # Ignore the path itself
+        next if $$row[$i] =~ m/[─│┌┐└┘]/;
+        # Extract the path-crossing characters from the remainder of this row.
+        # Note this does not include ─, since that is not a path crossing.
+        my $path = join('', grep { /[│┌┐└┘]/ } @$row[$i+1..$#$row]);
+        # Straighten out wavy crossings so we don't count them twice.
+        $path =~ s/(?:┌┘|└┐)/│/g;
+        # Odd number of crossings implies the point is inside the path.
+        $$row[$i] = (length($path) % 2 ? '.' : ' ');
+        $count++ if $$row[$i] eq '.';
+    }
+}
+print "${count}\n";
+
+# Uncomment to print out a prettified version of the map
+#print map { join('', @$_)."\n" } @data;
