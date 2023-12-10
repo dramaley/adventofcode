@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This variant uses a 2D array instead of 3D. To accomplish that, everything
+# was moved into 1 loop. This should conserve memory as well, since the entire
+# input is not retained in memory.
+
+my $sum = 0;
+foreach my $data (map { chomp; [[ split / +/ ]] } <>) {
+    # Process the sequences
+    for (my $j = 0; $j < @$data; $j++) {                        # extrapolation
+        my $sum = 0;
+        for (my $k = 0; $k < @{$$data[$j]} - 1; $k++) {         # elements
+            my $val = $$data[$j][$k+1] - $$data[$j][$k];
+            push @{$$data[$j+1]}, $val;
+            $sum += $val;
+        }
+        last if $sum == 0;      # Move on since we found a row of all zeroes
+    }
+
+    # Now add an entry to each sequence
+    my $add = 0;
+    for (my $j = @$data - 1; $j >= 0; $j--) {                   # extrapolation
+        $add = $$data[$j][-1] + $add;
+        push @$data[$j], $add;
+    }
+
+    # Find the sum of the most recent entry.
+    $sum += $$data[0][-1];
+}
+
+print "${sum}\n";
