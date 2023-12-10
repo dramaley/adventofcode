@@ -80,18 +80,16 @@ sub prettify {
 # ------------------------------------------------------------------------------
 sub prettify_S {
     my ($ns, $ew) = @_;
+    my %substitution = ('NS' => '│', 'NE' => '└', 'NW' => '┘',
+                        'SE' => '┌', 'SW' => '┐', 'EW' => '─');
     # Determine in which directions we connect to the rest of the path
-    my $north = ($data[$ns-1][$ew] =~ m/[│┌┐]/);
-    my $south = ($data[$ns+1][$ew] =~ m/[│└┘]/);
-    my $east = ($data[$ns][$ew+1] =~ m/[─┘┐]/);
-    my $west = ($data[$ns][$ew-1] =~ m/[─└┌]/);
+    my $key = '';
+    $key .= ($data[$ns-1][$ew] =~ m/[│┌┐]/) ? 'N' : '';      # North
+    $key .= ($data[$ns+1][$ew] =~ m/[│└┘]/) ? 'S' : '';      # South
+    $key .= ($data[$ns][$ew+1] =~ m/[─┘┐]/) ? 'E' : '';      # East
+    $key .= ($data[$ns][$ew-1] =~ m/[─└┌]/) ? 'W' : '';      # West
     # Substitute the appropriate character
-    $data[$ns][$ew] = '│' if $north and $south;
-    $data[$ns][$ew] = '─' if $east and $west;
-    $data[$ns][$ew] = '└' if $north and $east;
-    $data[$ns][$ew] = '┌' if $south and $east;
-    $data[$ns][$ew] = '┐' if $south and $west;
-    $data[$ns][$ew] = '┘' if $north and $west;
+    $data[$ns][$ew] = $substitution{$key};
 }
 
 
