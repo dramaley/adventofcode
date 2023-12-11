@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @data;
+
+# ------------------------------------------------------------------------------
+#  Given 0 or 1 to denote which coordinate to work on, identify and expand gaps
+# ------------------------------------------------------------------------------
+sub mind_the_gap {
+    my ($which) = @_;
+
+    # Get list of coordinates
+    my %coords = ();
+    @coords{ map { $$_[$which] } @data } = ();
+
+    # Identify which to skip
+    my @skip = ();
+    my $previous = -1;
+    foreach (sort { $a <=> $b } keys %coords) {
+        push @skip, $previous+1..$_-1;
+        $previous = $_;
+    }
+
+    # Enlarge gaps by incrementing any indices beyond them
+    foreach my $i (reverse @skip) {
+        foreach (@data) {
+            $$_[$which]+=999999 if $$_[$which] > $i;
+        }
+    }
+}
+
+
+# Read the data into a list of coordinates where the galaxies are.
+{   my $row = 0;
+    while (<>) {
+	push @data, [$row, (pos) - 1] while m/#/g;
+	$row++;
+    }
+}
+
+# Expand the gaps
+&mind_the_gap(0);
+&mind_the_gap(1);
+
+# Process all combinations of coordinates, summing distance between them
+my $sum = 0;
+foreach (my $i = 0; $i < @data-1; $i++) {
+    foreach (my $j = $i+1; $j < @data; $j++) {
+        $sum += abs($data[$i][0] - $data[$j][0]) + abs($data[$i][1] - $data[$j][1]);
+    }
+}
+
+print "${sum}\n";
