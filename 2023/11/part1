@@ -49,7 +49,8 @@ sub mind_the_gap {
 my $sum = 0;
 foreach (my $i = 0; $i < @data-1; $i++) {
     foreach (my $j = $i+1; $j < @data; $j++) {
-        $sum += abs($data[$i][0] - $data[$j][0]) + abs($data[$i][1] - $data[$j][1]);
+        # Coordinate 1 can be in any order, so use abs() to force it positive
+        $sum += $data[$j][0] - $data[$i][0] + abs($data[$i][1] - $data[$j][1]);
     }
 }
 
