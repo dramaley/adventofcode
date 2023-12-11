@@ -26,9 +26,7 @@ sub mind_the_gap {
 
     # Enlarge gaps by incrementing any indices beyond them
     foreach my $i (reverse @skip) {
-        foreach (@data) {
-            $$_[$which]++ if $$_[$which] > $i;
-        }
+        $$_[$which]++ foreach grep { $$_[$which] > $i } @data;
     }
 }
 
