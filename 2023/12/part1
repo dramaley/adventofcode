@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#  Given a string and a list of contiguous groups, figure out how many possible
+#  arrangements there are. Possible characters in the string and their meaning:
+#    .   Not part of a group
+#    #   Part of a group
+#    ?   Unknown / wildcard
+# ------------------------------------------------------------------------------
+sub solveit {
+    my ($list, @groups) = @_;
+    $list =~ s/^\.*(.*?)\.*$/$1/;       # Periods at the edges are irrelevant
+
+    # Minimum number of characters we need for a match.
+    my $min = 0;
+    $min += $_ foreach @groups;
+    $min += @groups - 1;
+
+    my $retval = 0;
+    my $group = shift @groups;          # How long the next group needs to be
+    for (my $i = 0; $i <= length($list) - $min; $i++) {
+        if ($list =~ m/^[^#]{${i}}[?#]{${group}}(?!#)/) {
+            my $regex = '^.{' . ($group + $i) . '}.?';
+            # Remove what we matched plus padding (if any)
+            (my $remainder = $list) =~ s/${regex}//;
+            if (@groups) {
+                $retval += &solveit($remainder, @groups);
+            } else {
+                $retval += $remainder =~ m/^[?.]*$/ ? 1 : 0;
+            }
+        }
+    }
+    return $retval;
+}
+
+
+# Read input and process each line as we go.
+my $sum = 0;
+while (<>) {
+    chomp;
+    my ($list, @damaged) = split /[ ,]/;
+    $sum += &solveit($list, @damaged);
+}
+print "${sum}\n";

@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+no warnings ('substr');
+
+our %cache = ();
+
+# ------------------------------------------------------------------------------
+#  Given a string and a list of contiguous groups, figure out how many possible
+#  arrangements there are. Possible characters in the string and their meaning:
+#    .   Not part of a group
+#    #   Part of a group
+#    ?   Unknown / wildcard
+# ------------------------------------------------------------------------------
+sub solveit {
+    my ($pattern, @groups) = @_;
+    my $cachekey = join('-', map { defined $_ ? $_ : '' } @_);
+
+    # We're at the end
+    return int(@groups == 0) if not $pattern;
+    return int($pattern !~ m/#/) if not @groups;
+
+    # We've been here before
+    return $cache{$cachekey} if exists $cache{$cachekey};
+
+    my $retval = 0;
+
+    # Next character can be interpreted as "."
+    $retval += &solveit(substr($pattern, 1), @groups) if $pattern =~ m/^[?.]/;
+
+    my $regex = '^[?#]{' . $groups[0] . '}(?!#)';
+    if ($pattern =~ m/${regex}/) {
+	$retval += &solveit( substr($pattern, $groups[0] + 1),
+			     @groups[1..$#groups] );
+    }
+
+    $cache{$cachekey} = $retval;
+    return $retval;
+}
+
+
+# Read input and process each line as we go.
+my $sum = 0;
+while (<>) {
+    chomp;
+    my ($pattern, @groups) = split /[ ,]/;
+
+    # Embiggen everything
+    $pattern = join('?', ($pattern) x 5);
+    @groups = (@groups) x 5;
+
+    $sum += &solveit($pattern, @groups);
+}
+print "${sum}\n";
