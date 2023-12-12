@@ -1,3 +1,12 @@
+# Advent of Code exclusions.
+# The AoC "About" page requests that problem text and inputs not be posted
+# elsewhere. So i'm removing them from this repository and making sure they
+# aren't included in the future.
+problem.txt
+sample*
+input*
+
+
 # Created by https://www.toptal.com/developers/gitignore/api/linux,emacs,perl
 # Edit at https://www.toptal.com/developers/gitignore?templates=linux,emacs,perl
 
