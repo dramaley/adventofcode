@@ -16,6 +16,15 @@ sub check_mirror {
     my $i = $strlen - 1;
     # Start high and work low so that we end at 0 if nothing was found.
     while ($i > 0) {
+        #     $i   $pos   $len          The $pos and $len formulae are a bit
+        #     8    7      2             unintuitive. Here's an example chart,
+        #     7    5      4             given a $strlen of 9.
+        #     6    3      6
+        #     5    1      8
+        #     4    0      8
+        #     3    0      6
+        #     2    0      4
+        #     1    0      2
         my $pos = $i * 2 - $strlen; $pos = 0 if $pos < 0;
         my $len = $pos > 0 ? $strlen - $pos : 2 * $i;
         # Compare a substring with its reverse (aka, mirror image). If the count
