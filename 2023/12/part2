@@ -3,6 +3,10 @@
 use 5.8.1;
 use strict;
 use warnings 'all';
+# This algorithm (just barely) hits the deep recursion limit of 100 with the
+# input provided. And the only way to change that limit is to recompile Perl!
+# So... just turn off that warning.
+no warnings 'recursion';
 
 our %cache = ();
 
