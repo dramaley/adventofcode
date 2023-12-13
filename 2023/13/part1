@@ -1,0 +1,71 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#  Given the lines of a matrix, check for a mirror along the columns. Return
+#  the column where a reflection was found, or 0 if none.
+# ------------------------------------------------------------------------------
+sub check_mirror {
+    my (@lines) = @_;
+
+    # Note that the number of columns is always odd
+    my $strlen = length($lines[0]);
+    my $i = $strlen - 1;
+    # Start high and work low so that we end at 0 if nothing was found.
+    while ($i > 0) {
+        my $pos = $i * 2 - $strlen; $pos = 0 if $pos < 0;
+        my $len = $pos > 0 ? $strlen - $pos : 2 * $i;
+        # Grab the rightmost $slice characters from each line. Compare them to
+        # their mirror image (reverse). If the number of lines that are the same
+        # as their own mirror image equals the number of lines total, then we
+        # found our match so bail out.
+        last if (@lines == (grep { $_ eq reverse $_ }
+                            map { substr($_, $pos, $len) }
+                            @lines));
+        $i--;
+    }
+    return $i;
+}
+
+# ------------------------------------------------------------------------------
+#  Try to find a mirror and return either the column number where it was found,
+#  or 100 times the row number where it was found.
+# ------------------------------------------------------------------------------
+sub process {
+    my (@lines) = @_;
+
+    # Look for a mirror along the columns
+    my $retval = &check_mirror(@lines);
+    return $retval if $retval;
+
+    # No match found, so flip the matrix
+    my @newlines;
+    foreach my $i (0..length($lines[0])-1) {
+        push @newlines, join('', map { substr($_, $i, 1) } @lines);
+    }
+
+    # Now that we've swapped rows/columns, look for a mirror along the "rows"
+    $retval = &check_mirror(@newlines);
+    return 100*$retval if $retval;
+
+    die 'No mirror found';
+}
+
+# Read a pattern and then process it once found
+my @lines = ();
+my $sum = 0;
+while (<>) {
+    chomp;
+    if ($_) {
+        push @lines, $_;
+    } else {
+        # We hit a blank line, which signifies the boundary between patterns.
+        $sum += &process(@lines);
+        @lines = ();
+    }
+}
+$sum += &process(@lines);               # Process the last pattern
+print "$sum\n";
