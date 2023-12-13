@@ -18,10 +18,8 @@ sub check_mirror {
     while ($i > 0) {
         my $pos = $i * 2 - $strlen; $pos = 0 if $pos < 0;
         my $len = $pos > 0 ? $strlen - $pos : 2 * $i;
-        # Grab the rightmost $slice characters from each line. Compare them to
-        # their mirror image (reverse). If the number of lines that are the same
-        # as their own mirror image equals the number of lines total, then we
-        # found our match so bail out.
+        # Compare a substring with its reverse (aka, mirror image). If the count
+        # of those equals the number of lines, then we found our match.
         last if (@lines == (grep { $_ eq reverse $_ }
                             map { substr($_, $pos, $len) }
                             @lines));
