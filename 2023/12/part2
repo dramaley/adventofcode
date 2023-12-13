@@ -3,7 +3,6 @@
 use 5.8.1;
 use strict;
 use warnings 'all';
-no warnings ('substr');
 
 our %cache = ();
 
@@ -32,8 +31,10 @@ sub solveit {
 
     my $regex = '^[?#]{' . $groups[0] . '}(?!#)';
     if ($pattern =~ m/${regex}/) {
-	$retval += &solveit( substr($pattern, $groups[0] + 1),
-			     @groups[1..$#groups] );
+        # Prevent substring out of bounds warnings
+        my $newpattern = (length($pattern) > $groups[0] ?
+                          substr($pattern, $groups[0] + 1) : '');
+        $retval += &solveit( $newpattern, @groups[1..$#groups] );
     }
 
     $cache{$cachekey} = $retval;
