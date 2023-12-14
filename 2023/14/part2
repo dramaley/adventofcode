@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Digest::SHA qw/sha256/;
+
+our @grid = map { chomp; [ split // ] } <>;
+
+# I know there's a fancy way to combine these 4 functions into 1 that is more
+# elegant, but i just don't care at the moment, separate functions was faster
+# to implement.
+
+sub north {
+    # Move O's north. Smells like a bubble sort.
+    for (my $col = 0; $col < @{$grid[0]}; $col++) {
+        my $bottom = 0;
+        for (my $row = 0; $row < @grid; $row++) {
+            if ($grid[$row][$col] eq '#') { # Found a cube-shaped rock
+                $bottom = $row + 1;         # It becomes the new bottom.
+                next;
+            }
+            if ($grid[$row][$col] eq 'O') { # Found a rolling boulder
+                if ($bottom < $row) {
+                    $grid[$bottom][$col] = 'O'; # Roll the boulder to the bottom
+                    $grid[$row][$col] = '.';
+                }
+                $bottom++;
+            }
+        }
+    }
+}
+
+sub east {
+    # Move O's east.
+    for (my $row = 0; $row < @grid; $row++) {
+        my $bottom = $#{$grid[0]};
+        for (my $col = $#{$grid[0]}; $col >= 0; $col--) {
+            if ($grid[$row][$col] eq '#') { # Found a cube-shaped rock
+                $bottom = $col - 1;         # It becomes the new bottom.
+                next;
+            }
+            if ($grid[$row][$col] eq 'O') { # Found a rolling boulder
+                if ($bottom > $col) {
+                    $grid[$row][$bottom] = 'O'; # Roll the boulder to the bottom
+                    $grid[$row][$col] = '.';
+                }
+                $bottom--;
+            }
+        }
+    }
+}
+
+sub south {
+    # Move O's south.
+    for (my $col = 0; $col < @{$grid[0]}; $col++) {
+        my $bottom = $#grid;
+        for (my $row = $#grid; $row >= 0; $row--) {
+            if ($grid[$row][$col] eq '#') { # Found a cube-shaped rock
+                $bottom = $row - 1;         # It becomes the new bottom.
+                next;
+            }
+            if ($grid[$row][$col] eq 'O') { # Found a rolling boulder
+                if ($bottom > $row) {
+                    $grid[$bottom][$col] = 'O'; # Roll the boulder to the bottom
+                    $grid[$row][$col] = '.';
+                }
+                $bottom--;
+            }
+        }
+    }
+}
+
+sub west {
+    # Move O's west.
+    for (my $row = 0; $row < @grid; $row++) {
+        my $bottom = 0;
+        for (my $col = 0; $col < @{$grid[0]}; $col++) {
+            if ($grid[$row][$col] eq '#') { # Found a cube-shaped rock
+                $bottom = $col + 1;         # It becomes the new bottom.
+                next;
+            }
+            if ($grid[$row][$col] eq 'O') { # Found a rolling boulder
+                if ($bottom < $col) {
+                    $grid[$row][$bottom] = 'O'; # Roll the boulder to the bottom
+                    $grid[$row][$col] = '.';
+                }
+                $bottom++;
+            }
+        }
+    }
+}
+
+my %cache;
+my $iters = 1000000000;
+for (my $cycles = 0; $cycles < $iters; $cycles++) {
+    &north;
+    &west;
+    &south;
+    &east;
+    my $key = sha256(join('', map { join('', @$_) } @grid));
+    if (exists $cache{$key}) {
+        print "Found a repeat on cycle ${cycles}, same as ${cache{$key}}\n";
+        # Figure out the repeat cycle, then make a great leap forward
+        my $repeat = $cycles - $cache{$key};
+        $cycles += $repeat * int(($iters - $cycles) / $repeat);
+        %cache = ();    # Cache won't help now that we're close to the end
+    } else {
+        $cache{$key} = $cycles;
+    }
+}
+
+my $sum = 0;
+$sum += (@grid - $_) * scalar(grep { /O/ } @{$grid[$_]}) foreach 0..$#grid;
+print "${sum}\n";
