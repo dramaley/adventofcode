@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#  Implementation of the given hash algorithm
+# ------------------------------------------------------------------------------
+sub hash {
+    my ($chars) = @_;
+
+    my $current = 0;
+    foreach (split //, $chars) {
+        $current += ord;
+        $current *= 17;
+        $current %= 256;
+    }
+    return $current;
+}
+
+
+my $sum = 0;
+while (<>) {
+    chomp;
+    $sum += &hash($_) foreach split /,/;
+}
+print "${sum}\n";

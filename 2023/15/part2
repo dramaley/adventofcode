@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Each element will be a list of hashes. Hash keys are 'label' and 'focal_len'.
+our @boxes;
+
+# ------------------------------------------------------------------------------
+#  Implementation of the given hash algorithm
+# ------------------------------------------------------------------------------
+sub hash {
+    my ($chars) = @_;
+
+    my $current = 0;
+    foreach (split //, $chars) {
+        $current += ord;
+        $current *= 17;
+        $current %= 256;
+    }
+    return $current;
+}
+
+# ------------------------------------------------------------------------------
+#  Implementation of the HASHMAP algorithm
+# ------------------------------------------------------------------------------
+sub hashmap {
+    my ($input) = @_;
+    $input =~ m/^([[:alpha:]]+)([-=])(\d*)$/;
+    my ($label, $operation, $number) = ($1, $2, $3);
+
+    my $box = \@{$boxes[&hash($label)]}; # Pointer to the appropriate box
+    if ($operation eq '-') {
+        @$box = grep { $$_{'label'} ne $label } @$box;
+    } elsif ($operation eq '=') {
+        my $i = (grep { $$box[$_]{'label'} eq $label } 0..$#$box)[0];
+        if (defined $i) {
+            $$box[$i]{'focal_len'} = $number;
+        } else {
+            push @$box, { 'label' => $label, 'focal_len' => $number };
+        }
+    } else {
+        die "Unknown operation '${operation}'";
+    }
+}
+
+while (<>) {
+    chomp;
+    &hashmap($_) foreach split /,/;
+}
+
+my $sum = 0;
+foreach my $i (grep { $boxes[$_] and @{$boxes[$_]} } 0..255) { # Ignore empties
+    foreach my $j (0..$#{$boxes[$i]}) {
+        $sum += ($i + 1) * ($j + 1) * $boxes[$i][$j]{'focal_len'};
+    }
+}
+print "${sum}\n";
