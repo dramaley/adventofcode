@@ -1,0 +1,89 @@
+#!/usr/bin/perl
+
+use 5.14.0;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+# Main array will be a 2D array of hashes, with hash keys:
+#     tile       - Character contained in this tile
+#     energized  - Whether it is energized
+#     <, >, v, ^ - Whether the tile has been entered in the indicated direction
+our @map = ();
+our ($rows, $cols);
+
+# ------------------------------------------------------------------------------
+#  Trace a beam through the map. Takes the row, column, and direction of the
+#  beam. Doesn't return anything, but does modify the @map data structure.
+# ------------------------------------------------------------------------------
+sub tracer {
+    my ($row, $col, $dir) = @_;
+
+    # Do while within bounds of @map
+    while ($row ~~ [0..$rows] and $col ~~ [0..$cols] ) {
+        my $this = \%{$map[$row][$col]};    # Reference to the current tile
+        last if exists $$this{$dir};        # We've been here before
+
+        $$this{$dir} = 1;
+        $$this{'energized'} = 1;
+
+        # Figure out if we're just passing through
+        if ($$this{'tile'} eq '.' or
+            ($$this{'tile'} eq '-' and $dir =~ m/[<>]/) or
+            ($$this{'tile'} eq '|' and $dir =~ m/[v^]/)) {
+            # Move to the next row or column
+            for ($dir) {
+                /</  && do { $col--; last; };
+                />/  && do { $col++; last; };
+                /v/  && do { $row++; last; };
+                /\^/ && do { $row--; last; };
+            }
+        } elsif ($$this{'tile'} eq '-') {
+            # Beam has to split into two. First send a beam off to the left.
+            &tracer($row, $col - 1, '<');
+            # Handle the beam to the right, right here.
+            $col++;
+            $dir = '>';
+        } elsif ($$this{'tile'} eq '|') {
+            # Beam me up!
+            &tracer($row - 1, $col, '^');
+            # Handle the lower beam
+            $row++;
+            $dir = 'v';
+        } elsif ($$this{'tile'} eq '/') {
+            for ($dir) {
+                /</  && do { $row++; $dir = 'v'; last; };
+                />/  && do { $row--; $dir = '^'; last; };
+                /v/  && do { $col--; $dir = '<'; last; };
+                /\^/ && do { $col++; $dir = '>'; last; };
+            }
+        } elsif ($$this{'tile'} eq '\\') {
+            for ($dir) {
+                /</  && do { $row--; $dir = '^'; last; };
+                />/  && do { $row++; $dir = 'v'; last; };
+                /v/  && do { $col++; $dir = '>'; last; };
+                /\^/ && do { $col--; $dir = '<'; last; };
+            }
+        } else {
+            die "Unrecognized tile '$$this{'tile'}'";
+        }
+    }
+}
+
+
+# Read input
+while (<>) {
+    chomp;
+    push @map, [ map { { 'tile' => $_ } } split // ];
+}
+# Set the last index of the rows/columns to simplify things
+$rows = $#map;
+$cols = $#{$map[0]};
+
+# Move through the map and energize each tile as appropriate
+&tracer(0, 0, '>');
+
+# Figure out how many are energized.
+my $sum = 0;
+$sum += $_ foreach map { scalar grep { $$_{'energized'} } @$_ } @map;
+print "${sum}\n";
