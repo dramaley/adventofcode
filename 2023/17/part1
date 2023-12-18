@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+
+# Puzzle input, as a simple 2D array of numbers
+my @costs = map { chomp; [ map { $_ + 0 } split // ] } <>;
+
+# Set the last index of the rows/columns to simplify things
+my $rows = $#costs;
+my $cols = $#{$costs[0]};
+
+my %directions = ('^' => [ 0, -1 ], 'v' => [ 0, 1 ],
+                  '>' => [ 1, 0 ],  '<' => [ -1, 0 ]);
+my %turns = ('^' => [ '<', '>' ], 'v' => [ '<', '>' ], '>' => [ '^', 'v' ],
+             '<' => [ '^', 'v' ], ' ' => [ '<', '>', '^', 'v' ]);
+
+my $init = [ 0, 0, 0, ' ', undef ];
+my $pq = Array::Heap::PriorityQueue::Numeric->new();
+my @best_map;                           # Best time to reach a position.
+$pq->add($init, 0);
+my $result = ~0;                        # Assume infinity
+while (my $entry = $pq->get()) {
+    my ($cost, $col, $row, $lastmove, $seq) = @$entry;
+    my $distance = abs($col - $cols) + abs($row - $rows);
+    next if (defined $best_map[$row][$col]{$lastmove} and
+             $best_map[$row][$col]{$lastmove} <= $cost);
+    $best_map[$row][$col]{$lastmove} = $cost;
+    if ($distance == 0) {
+        next if $cost >= $result;
+        $result = $cost;
+        last if keys %{$best_map[$row][$col]} == 2;
+    }
+    foreach my $next (@{$turns{$lastmove}}) {
+        my ($col_dir, $row_dir) = @{$directions{$next}};
+        foreach my $movement (1..3) {
+            my $new_col = $col + $col_dir * $movement;
+            my $new_row = $row + $row_dir * $movement;
+            next if ($new_col < 0 or $new_col >= ($cols+1) or
+                     $new_row < 0 or $new_row >= ($rows+1));
+            my $new_cost = $cost;
+            $new_cost += $_ foreach
+                map { $costs[$row + $row_dir * $_][$col + $col_dir * $_] } (1..$movement);
+            $pq->add([$new_cost, $new_col, $new_row, $next, $entry],
+                     $new_cost + abs($new_col - $cols) + abs($new_row - $rows));
+        }
+    }
+}
+print "${result}\n";

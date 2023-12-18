@@ -1,0 +1,78 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my %directions = ('U' => [ 0, -1 ], 'D' => [ 0, 1 ],
+                  'L' => [ -1, 0 ], 'R' => [ 1, 0 ]);
+my @input = map { chomp; [ split / / ] } <>;
+
+# Find the minimum/maximum of a list of numbers
+sub min { return (sort { $a <=> $b } @_)[0]; }
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+
+# Determine the range of the grid relative to the initial dig
+my ($rows, $cols, $start_row, $start_col);
+{
+    my ($row, $col, $min_row, $max_row, $min_col, $max_col) = (0) x 6;
+    foreach (@input) {
+        # Not sure what the color is for in the input, so ignore it for now.
+        my ($direction, $distance) = @{$_}[0,1];
+
+        my ($col_dir, $row_dir) = @{$directions{$direction}};
+        $col += $col_dir * $distance;
+        $row += $row_dir * $distance;
+        $min_row = $row if $row < $min_row;
+        $max_row = $row if $row > $max_row;
+        $min_col = $col if $col < $min_col;
+        $max_col = $col if $col > $max_col;
+    }
+
+    $start_row = -$min_row;             # Note $min_* is 0 or negative
+    $rows = $max_row - $min_row;
+    $start_col = -$min_col;
+    $cols = $max_col - $min_col;
+}
+
+# Initialize a grid of the appropriate size.
+my @grid = map { [ ('.') x ($cols + 1) ] } 0..$rows;
+{
+    # Dig the trench
+    my ($row, $col) = ($start_row, $start_col);
+    foreach (@input) {
+        my ($direction, $distance) = @{$_}[0,1];
+        my ($col_dir, $row_dir) = @{$directions{$direction}};
+        my $new_col += $col + $col_dir * $distance;
+        my $new_row += $row + $row_dir * $distance;
+        $grid[$_][$col] = 'X'
+            foreach (&min($row, $new_row)..&max($row, $new_row));
+        $grid[$row][$_] = 'X'
+            foreach (&min($col, $new_col)..&max($col, $new_col));
+        ($row, $col) = ($new_row, $new_col);
+    }
+}
+
+# Dig out the interior
+#foreach my $row (@grid) {
+#    my $dig = 0;
+#    for my $col (0..$#$row) {
+#        $dig = 1 - $dig if $$row[$col] eq 'X';
+#        $$row[$col] = 'X' if $dig;
+#    }
+#}
+
+# Count the dug out spaces on the grid
+my $sum = 0;
+$sum += $_ foreach map { scalar grep { $_ ne '.' } @$_ } @grid;
+print "${sum}\n";
+
+
+
+#print "Starting position: (${start_row}, ${start_col})\n";
+#print "Grid size: (${rows}, ${cols})\n";
+print map { join('', @$_)."\n" } @grid;
+
+#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1;
+#print Data::Dumper->Dump([ \@grid ], [ '*grid' ]); exit;
+
