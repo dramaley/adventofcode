@@ -1,0 +1,61 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my %pipelines;
+while (<>) {            # Read pipelines
+    chomp;
+    last if /^$/;       # Blank line
+    m/^(\w+)\{(.+)\}/;
+    my $name = $1;
+    my @ops = split /,/, $2;
+    foreach (@ops) {
+        my %stuff;
+        if (m/:/) {
+            my ($rule, $dest) = split /:/;
+            $rule =~ m/^(\w)(.+)$/;
+            %stuff = ('rule' => [$1, $2], 'dest' => $dest);
+        } else {
+            %stuff = ('dest' => $_);
+        }
+        push @{$pipelines{$name}}, \%stuff;
+    }
+}
+
+my $sum = 0;
+while (<>) {            # Read parts
+    chomp;
+    tr/\{\}//d;         # Delete the curly braces.
+    my %input = map { split /=/ } split /,/;
+
+    my $pipe = 'in';
+  WHILE:
+    while (1) {
+        foreach my $action (@{$pipelines{$pipe}}) {
+            if (exists $$action{'rule'}) {
+                my ($letter, $comparison) = @{$$action{'rule'}};
+                if (eval "${input{$letter}}${comparison}") {
+                    foreach ($$action{'dest'}) {
+                        /A/ && do { $sum += $_ foreach values %input;
+                                    last WHILE; };
+                        /R/ && do { last WHILE; };
+                        $pipe = $_;
+                        next WHILE;
+                    }
+                }
+            } else {
+                foreach ($$action{'dest'}) {
+                    /A/ && do { $sum += $_ foreach values %input;
+                                last WHILE; };
+                    /R/ && do { last WHILE; };
+                    $pipe = $_;
+                    next WHILE;
+                }
+            }
+        }
+        die 'Insufficient rules in pipeline';
+    }
+}
+print "${sum}\n";

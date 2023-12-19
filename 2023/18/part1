@@ -2,20 +2,19 @@
 
 use 5.8.1;
 use strict;
+use utf8;                               # Source contains UTF-8
+use open ':std', ':encoding(UTF-8)';    # The terminal supports UTF-8
 use warnings 'all';
 
 my %directions = ('U' => [ 0, -1 ], 'D' => [ 0, 1 ],
                   'L' => [ -1, 0 ], 'R' => [ 1, 0 ]);
+my $dug_char = '#';                     # What denotes a dug hole on the grid.
+my $empty_char = '.';                   # What denotes empty space on the grid.
 my @input = map { chomp; [ split / / ] } <>;
-
-# Find the minimum/maximum of a list of numbers
-sub min { return (sort { $a <=> $b } @_)[0]; }
-sub max { return (sort { $a <=> $b } @_)[-1]; }
 
 # Determine the range of the grid relative to the initial dig
 my ($rows, $cols, $start_row, $start_col);
-{
-    my ($row, $col, $min_row, $max_row, $min_col, $max_col) = (0) x 6;
+{   my ($row, $col, $min_row, $max_row, $min_col, $max_col) = (0) x 6;
     foreach (@input) {
         # Not sure what the color is for in the input, so ignore it for now.
         my ($direction, $distance) = @{$_}[0,1];
@@ -36,43 +35,58 @@ my ($rows, $cols, $start_row, $start_col);
 }
 
 # Initialize a grid of the appropriate size.
-my @grid = map { [ ('.') x ($cols + 1) ] } 0..$rows;
-{
-    # Dig the trench
+my @grid = map { [ ($empty_char) x ($cols + 1) ] } 0..$rows;
+{   # Find the minimum/maximum of a list of numbers
+    sub min { return (sort { $a <=> $b } @_)[0]; }
+    sub max { return (sort { $a <=> $b } @_)[-1]; }
+
+    # Mark where the trench is
     my ($row, $col) = ($start_row, $start_col);
     foreach (@input) {
         my ($direction, $distance) = @{$_}[0,1];
         my ($col_dir, $row_dir) = @{$directions{$direction}};
-        my $new_col += $col + $col_dir * $distance;
-        my $new_row += $row + $row_dir * $distance;
-        $grid[$_][$col] = 'X'
+        my $new_col = $col + $col_dir * $distance;
+        my $new_row = $row + $row_dir * $distance;
+        $grid[$_][$col] .= $direction
             foreach (&min($row, $new_row)..&max($row, $new_row));
-        $grid[$row][$_] = 'X'
+        $grid[$row][$_] .= $direction
             foreach (&min($col, $new_col)..&max($col, $new_col));
         ($row, $col) = ($new_row, $new_col);
     }
+    # Fix ordering for the start point
+    $grid[$row][$col] = reverse $grid[$row][$col];
 }
 
-# Dig out the interior
-#foreach my $row (@grid) {
-#    my $dig = 0;
-#    for my $col (0..$#$row) {
-#        $dig = 1 - $dig if $$row[$col] eq 'X';
-#        $$row[$col] = 'X' if $dig;
-#    }
-#}
+# Convert the trench into prettier characters
+my %trench = ('U' => '│', 'D' => '│', 'L' => '─', 'R' => '─',
+              'UL' => '┐', 'UR' => '┌', 'DL' => '┘', 'DR' => '└',
+              'LU' => '└', 'LD' => '┌', 'RU' => '┘', 'RD' => '┐');
+foreach my $row (@grid) {
+    foreach my $col (grep { length($$row[$_]) > 1 } 0..$#$row) {
+        (my $key = $$row[$col]) =~ s/[${empty_char}]//;
+        $key =~ s/(.)(?=.*?\1)//g;  # Compensate for a duplicate-character bug
+        $$row[$col] = $trench{$key} if exists $trench{$key};
+    }
+}
+
+# Dig out the interior using ray-casting
+foreach my $row (@grid) {
+    foreach my $col (0..$#$row) {
+        # Ignore the path itself
+        next if $$row[$col] =~ m/[─│┌┐└┘]/;
+        # Extract the path-crossing characters from the remainder of this row.
+        # Note this does not include ─, since that is not a path crossing.
+        my $path = join('', grep { /[│┌┐└┘]/ } @$row[$col+1..$#$row]);
+        # Straighten out wavy crossings so we don't count them twice.
+        $path =~ s/(?:┌┘|└┐)/│/g;
+        # Odd number of crossings implies the point is inside the path.
+        $$row[$col] = (length($path) % 2 ? $dug_char : $empty_char);
+    }
+}
 
 # Count the dug out spaces on the grid
 my $sum = 0;
-$sum += $_ foreach map { scalar grep { $_ ne '.' } @$_ } @grid;
+$sum += $_ foreach map { scalar grep { $_ ne $empty_char } @$_ } @grid;
 print "${sum}\n";
 
-
-
-#print "Starting position: (${start_row}, ${start_col})\n";
-#print "Grid size: (${rows}, ${cols})\n";
-print map { join('', @$_)."\n" } @grid;
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1;
-#print Data::Dumper->Dump([ \@grid ], [ '*grid' ]); exit;
-
+#print map { join('', @$_)."\n" } @grid;

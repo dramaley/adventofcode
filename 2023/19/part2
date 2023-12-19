@@ -1,0 +1,118 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Storable qw/dclone/; # Deep copy of data structures
+
+our %pipelines;
+while (<>) {            # Read pipelines
+    chomp;
+    last if /^$/;       # Blank line
+    m/^(\w+)\{(.+)\}/;
+    my $name = $1;
+    my @ops = split /,/, $2;
+    foreach (@ops) {
+        my %stuff;
+        if (m/:/) {
+            my ($rule, $dest) = split /:/;
+            $rule =~ m/^(\w)(.)(\d+)$/;
+            %stuff = ('rule' => [$1, $2, $3], 'dest' => $dest);
+        } else {
+            %stuff = ('dest' => $_);
+        }
+        push @{$pipelines{$name}}, \%stuff;
+    }
+}
+
+# ------------------------------------------------------------------------------
+#  Given a set of ranges, calculate the total 4-dimensional "area"
+# ------------------------------------------------------------------------------
+sub range_area {
+    my ($ranges) = @_;
+    my $area = 1;
+    $area *= ($$_[1] - $$_[0] + 1)
+        foreach values %$ranges;
+    return $area;
+}
+
+# ------------------------------------------------------------------------------
+#  Recursive solution to the main loop
+# ------------------------------------------------------------------------------
+sub recursor {
+    my ($pipe, $ranges) = @_;
+    my $sum = 0;
+
+  WHILE:
+    while (1) {
+        foreach my $action (@{$pipelines{$pipe}}) {
+            if (exists $$action{'rule'}) {
+                my ($letter, $op, $num) = @{$$action{'rule'}};
+
+                my ($low, $high) = @{$$ranges{$letter}};
+                if ($op eq '<') {
+                    if ($high < $num) {
+                        # Entire range matches, process it
+                        foreach ($$action{'dest'}) {
+                            /A/ && do { $sum += &range_area($ranges);
+                                        last WHILE; };
+                            /R/ && do { last WHILE; };
+                            $pipe = $_;
+                            next WHILE;
+                        }
+                    } elsif ($low < $num) {
+                        # Partial range match, split it and process separately
+                        my $low_ranges = dclone($ranges);
+                        $$low_ranges{$letter}[1] = $num - 1;
+                        $sum += &recursor($pipe, $low_ranges);
+
+                        my $high_ranges = dclone($ranges);
+                        $$high_ranges{$letter}[0] = $num;
+                        $sum += &recursor($pipe, $high_ranges);
+
+                        last WHILE;
+                    }
+                } elsif ($op eq '>') {
+                    if ($low > $num) {
+                        # Entire range matches, process it
+                        foreach ($$action{'dest'}) {
+                            /A/ && do { $sum += &range_area($ranges);
+                                        last WHILE; };
+                            /R/ && do { last WHILE; };
+                            $pipe = $_;
+                            next WHILE;
+                        }
+                    } elsif ($high > $num) {
+                        # Partial range match, split it and process separately
+                        my $low_ranges = dclone($ranges);
+                        $$low_ranges{$letter}[1] = $num;
+                        $sum += &recursor($pipe, $low_ranges);
+
+                        my $high_ranges = dclone($ranges);
+                        $$high_ranges{$letter}[0] = $num + 1;
+                        $sum += &recursor($pipe, $high_ranges);
+
+                        last WHILE;
+                    }
+                } else {
+                    die "Unrecognized operator: \"${op}\"";
+                }
+            } else {
+                foreach ($$action{'dest'}) {
+                    /A/ && do { $sum += &range_area($ranges);
+                                last WHILE; };
+                    /R/ && do { last WHILE; };
+                    $pipe = $_;
+                    next WHILE;
+                }
+            }
+        }
+        die 'Insufficient rules in pipeline';
+    }
+    return $sum;
+}
+
+my %ranges = ('x' => [1, 4000], 'm' => [1, 4000],
+              'a' => [1, 4000], 's' => [1, 4000]);
+my $sum = &recursor('in', \%ranges);
+print "${sum}\n";
