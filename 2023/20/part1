@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+while (<>) {
+}
+
+
+
+
+
+# high pulse or low pulse
+#  %           flip-flop. initially off. high pulse ignored.
+#              low pulse flips between on & off.
+#              if turning on, send high pulse. if turning off, send low pulse.
+#  &           conjunction. remembers previous inputs. initial state is low.
+#              when pulse received, update memory.
+#              if all inputs high, send low. else send high.
+#  broadcast   repeats pulse to all destinations
+#  button      sends low pulse to broadcaster
