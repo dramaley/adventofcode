@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $num_steps = 64;    # How many steps the elf takes
+
+# Read input
+# Normally we'd add a border around the input to make it easier to avoid going
+# off-grid, but inspection reveals that the start position and size of the grid
+# are such that it is impossible to fall off in the number of steps available.
+my @grid;
+my ($start_row, $start_col);
+while (<>) {
+    chomp;
+    push @grid, [ split // ];
+    if (m/S/g) {
+        ($start_row, $start_col) = (pos() - 1, $. - 1);
+        $grid[$start_row][$start_col] = '.';
+    }
+}
+
+my @positions = ([$start_row, $start_col]);
+foreach my $i (1..$num_steps) {
+    my %new_positions;  # Use a hash to easily avoid duplicates
+    foreach my $position (@positions) {
+        my ($row, $col) = @$position;
+        foreach my $offset ([0,-1], [0,1], [-1,0], [1,0]) {
+            my $new_row = $row + $$offset[0];
+            my $new_col = $col + $$offset[1];
+            $new_positions{$new_row}{$new_col} = 0
+                if $grid[$new_row][$new_col] eq '.';
+        }
+    }
+    @positions = (map { my $row = $_;
+                        map { [$row, $_] } keys %{$new_positions{$row}} }
+                  keys %new_positions);
+}
+print scalar(@positions), "\n";
