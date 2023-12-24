@@ -1,9 +1,8 @@
 #!/usr/bin/perl
 
-use 5.14.1;
+use 5.8.1;
 use strict;
 use warnings 'all';
-use experimental 'smartmatch';
 use Math::Utils qw/lcm/;
 
 # The %network hash holds our entire state machine. Keys of the hash are the
