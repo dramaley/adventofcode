@@ -3,7 +3,6 @@
 use 5.8.1;
 use strict;
 use warnings 'all';
-use bignum;         # Make everything a lot slower, but more precise
 use Math::Round qw/round/;
 
 our @hail;
