@@ -1,8 +1,10 @@
 #!/usr/bin/perl
 
-use 5.8.1;
+use 5.14.1;
 use strict;
 use warnings 'all';
+use experimental 'smartmatch';
+use Math::Utils qw/lcm/;
 
 # The %network hash holds our entire state machine. Keys of the hash are the
 # names of each module. Value is a hash with keys as follows:
@@ -23,11 +25,12 @@ while (<>) {
     $network{$name}{'state'} = 0 if $type =~ m/[%&]/;
 }
 
-{   # Check for missing modules and fill them in with an untyped dummy module.
+{   # Check for missing modules and fill them in with a dummy module of type '&'
+    # so that its inputs will get filled in when conjunctions are processed.
     my @missing = (grep { not exists $network{$_} }
                    map { @{$network{$_}{'outs'}} }
                    keys %network);
-    $network{$_} = { 'type' => '', 'outs' => [] }
+    $network{$_} = { 'type' => '&', 'outs' => [] }
         foreach @missing;
 }
 
@@ -39,13 +42,21 @@ foreach my $name (keys %network) {
     }
 }
 
-my @pulses = (0, 0);                    # Count of (low, high) pulses
-foreach (1..1000) {
-    my @queue = [0, 'broadcaster', '']; # Button push: low pulse to broadcaster
+# Extra hack for the 'rx' module. It receives input from a single '&' module.
+# That module is also an '&' module, but has multiple inputs, each of which are
+# also '&' modules. We need to find out when all those inputs will be high
+# simultaneously, which will cascade into 'rx' receiving low. Initial testing
+# suggests this will end up being a high number of button presses, so we'll do
+# a least-common-multiple hack and hope it works.
+my $rx_upstream = (keys %{$network{'rx'}{'ins'}})[0];
+my %watchers = map { $_ => 0 } keys %{$network{$rx_upstream}{'ins'}};
 
+my $button_presses = 0;
+while (1) {
+    my @queue = [0, 'broadcaster', '']; # Button push: low pulse to broadcaster
+    $button_presses++;
     while (@queue) {
         my ($pulse, $target, $from) = @{ shift @queue };
-        $pulses[$pulse]++;              # Record this pulse
         my $this = $network{$target};
         for ($$this{'type'}) {
             /%/ and do { # Process a flip-flop.
@@ -62,11 +73,17 @@ foreach (1..1000) {
                 my $output = 1 - $inputs;       # Output is opposite
                 # Send pulses
                 push @queue, map { [$output, $_, $target] } @{$$this{'outs'}};
+                # Second piece of the 'rx' hack
+                $watchers{$target} = $button_presses
+                    if (exists $watchers{$target} and # If this one matters
+                        not $watchers{$target} and    # and hasn't been recorded
+                        $output);
                 last; };
             /B/ and do { # Process the broadcaster
                 push @queue, map { [$pulse, $_, $target] } @{$$this{'outs'}};
                 last; };
         }
     }
+    last if (scalar values %watchers) == (scalar grep { $_ } values %watchers);
 }
-print $pulses[0] * $pulses[1], "\n";
+print lcm(values %watchers), "\n";
