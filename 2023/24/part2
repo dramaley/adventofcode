@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use bignum;         # Make everything a lot slower, but more precise
+use Math::Round qw/round/;
+
+our @hail;
+
+# ------------------------------------------------------------------------------
+#  Given a number of list references, return a reference to the intersection.
+#  Please note that ordering is not preserved.
+# ------------------------------------------------------------------------------
+sub intersection {
+    my %hash;
+    @hash{ @{ shift @_ } } = ();
+    while (my $next = shift @_) {
+        my %isect;
+        @isect{ grep { exists $hash{$_} } @$next } = ();
+        %hash = %isect;
+    }
+    return [ keys %hash ];
+}
+
+
+# ------------------------------------------------------------------------------
+#  Given distance and velocity coordinates, represented as the second
+#  dimensional index into @hail (basically, x=3, y=4, z=5), return velocity
+#  in that dimension of the magic bullet we need to solve the puzzle.
+# ------------------------------------------------------------------------------
+sub v_solve {
+    my ($d_coor, $v_coor) = @_;
+
+    # Get a sorted list of velocities that occur multiple times
+
+    # Count how many times each velocity occurs
+    my %v_counts;
+    $v_counts{$_}++ foreach map { $$_[$v_coor] } @hail;
+    # Discard any that only occur once
+    delete $v_counts{$_} foreach grep { $v_counts{$_} == 1 } keys %v_counts;
+    # Sort by largest absolute value for efficiency
+    my @v_sorted = sort { abs($b) <=> abs($a) } keys %v_counts;
+
+    # Now reduce those velocities into the velocity of our magic bullet
+
+    # From inspecting the input and observing absolute value of all velocities
+    # is under 1000, make a guess that the answer will also be in that range.
+    my @set;
+    while (@set != 1) {                 # There can be only 1
+        die 'Ran out of input' if @v_sorted < 2;
+        my $this_v = shift @v_sorted;
+        # Find the difference of the distances between the first 2 points
+        my ($d1, $d2) = (sort { $a <=> $b }
+                         map { $$_[$d_coor] }
+                         grep { $$_[$v_coor] == $this_v }
+                         @hail);
+        my $d_diff = $d2 - $d1;
+        # Check numbers -1000..1000, skipping $this_v since that'd be division
+        # by 0 in the modulo.
+        my @newset = (grep { $d_diff % ($_ - $this_v) == 0 }
+                      -1000..$this_v-1,$this_v+1..1000);
+        @set = @set ? @{ &intersection(\@set, \@newset) } : @newset;
+    }
+    return shift @set;
+}
+
+
+# Read input.
+@hail = map { chomp; [ map { $_ + 0 } m/([-\d]+)/g ] } <>;
+
+# Solve the x, y, z velocities of our magic bullet.
+my $vx = &v_solve(0, 3);
+my $vy = &v_solve(1, 4);
+my $vz = &v_solve(2, 5);
+#print "Velocity vector: [${vx}, ${vy}, ${vz}]\n";
+
+# Now find the x, y, z start position, by figuring out where we intersect with
+# a couple of the hail particles and backtracking from there.
+my ($h1_dx, $h1_dy, $h1_dz, $h1_vx, $h1_vy, $h1_vz) = @{ $hail[0] };
+my ($h2_dx, $h2_dy, $h2_dz, $h2_vx, $h2_vy, $h2_vz) = @{ $hail[1] };
+my $m1 = ($h1_vy - $vy) / ($h1_vx - $vx);
+my $m2 = ($h2_vy - $vy) / ($h2_vx - $vx);
+my $c1 = $h1_dy - $m1 * $h1_dx;
+my $c2 = $h2_dy - $m2 * $h2_dx;
+# Precision on these numbers is kind of squirrelly. Round as necessary to fix.
+my $dx = round(($c2 - $c1) / ($m1 - $m2));
+my $dy = round($m1 * $dx + $c1);          # Use $dx to simplify finding $dy
+my $t = round(($dx - $h1_dx) / ($h1_vx - $vx));
+my $dz = $h1_dz + ($h1_vz - $vz) * $t;  # Use time to figure out $dz
+#print "Initial displacement: (${dx}, ${dy}, ${dz})\n";
+
+print $dx + $dy + $dz, "\n";
