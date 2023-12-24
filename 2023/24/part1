@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Search space
+our $global_min = 200000000000000;
+our $global_max = 400000000000000;
+
+# Read input
+our @hail = map { chomp; [ map { $_ + 0 } split /\s*(?:,|@)\s*/ ] } <>;
+
+my $crossings = 0;
+while (@hail) {
+    my ($dx1, $dy1, undef, $vx1, $vy1, undef) = @{ shift @hail };
+    # Compute (m, b) from the classic y=mx+b line equation
+    my $m1 = $vy1 / $vx1;
+    my $b1 = $dy1 - $m1 * $dx1;
+
+    foreach my $h2 (@hail) {
+        my ($dx2, $dy2, undef, $vx2, $vy2, undef) = @$h2;
+        my $m2 = $vy2 / $vx2;
+        my $b2 = $dy2 - $m2 * $dx2;
+        next if $m1 == $m2;             # Parallel lines, won't intersect
+        # Find intersection coordinates
+        my $ix = ($b2 - $b1) / ($m1 - $m2);
+        my $iy = $m1 * $ix + $b1;
+        # Calculate time each hail will be at the intersection
+        my $t1 = ($ix - $dx1) / $vx1;
+        my $t2 = ($ix - $dx2) / $vx2;
+        # Is the intersection within range?
+        $crossings++ if
+            $ix >= $global_min and $ix <= $global_max and   # x within range
+            $iy >= $global_min and $iy <= $global_max and   # y within range
+            $t1 >= 0 and $t2 >= 0;                          # Time not in past
+    }
+}
+print "${crossings}\n";
