@@ -14,22 +14,31 @@ use warnings 'all';
 our (%network, %counts);
 
 # ------------------------------------------------------------------------------
-#  Given 2 points in the network, return a list of a path
+#  Given 2 points in the network, return a list of the shortest path
 # ------------------------------------------------------------------------------
 sub path {
     my ($begin, $end) = @_;
 
-  RESTART:
-    my @path = ($begin);
-    my %seen = ();
-    while ($path[-1] ne $end) {
-	# Get available nodes to jump to next
-	my @next = grep { !$seen{$_}++ } @{$network{$path[-1]}};
-	# Check hack for dealing with a dead end
-	goto RESTART if not @next;
-	# Pick a next node at random
-	push @path, $next[int rand @next];
+    my %previous = ($begin => $begin);
+    my %seen = ($begin => 1);
+    my @nodes = ($begin);
+    while (@nodes) {
+        my @new_nodes;
+        foreach my $node (@nodes) {
+            foreach my $next (grep { !$seen{$_}++ } @{$network{$node}}) {
+                $previous{$next} = $node;
+                push @new_nodes, $next;
+            }
+        }
+        @nodes = @new_nodes;
     }
+
+    my @path = ($end);
+    my $node = $end;
+    do {
+        $node = $previous{$node};
+        push @path, $node;
+    } until $node eq $begin;
 
     return \@path;
 }
