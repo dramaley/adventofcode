@@ -1,0 +1,138 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Lacking experience with networks like this, i'm lost on how to code this to
+# get a deterministic and guaranteed-correct solution. Going to try some
+# sampling / Monte Carlo stuff and hope for the best.
+#
+# If we trace a few random paths through the network and keep track of which
+# links get used the most, hopefully the ones we need to cut will be revealed.
+
+our (%network, %counts);
+
+# ------------------------------------------------------------------------------
+#  Given 2 points in the network, return a list of the shortest path
+# ------------------------------------------------------------------------------
+sub path {
+    my ($begin, $end) = @_;
+
+    my %previous = ($begin => $begin);
+    my %seen = ($begin => 1);
+    my @nodes = ($begin);
+    while (@nodes) {
+        my @new_nodes;
+        foreach my $node (@nodes) {
+            foreach my $next (grep { !$seen{$_}++ } @{$network{$node}}) {
+                $previous{$next} = $node;
+                push @new_nodes, $next;
+            }
+        }
+        @nodes = @new_nodes;
+    }
+
+    my @path = ($end);
+    my $node = $end;
+    do {
+        $node = $previous{$node};
+        push @path, $node;
+    } until $node eq $begin;
+
+    return \@path;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Given an entry point to the network, return a count of how many nodes are
+#  connected by traversing them.
+# ------------------------------------------------------------------------------
+sub connections {
+    my (@queue) = @_;
+    my %seen;
+    push @queue, grep { !$seen{$_}++ } @{$network{$_}} foreach @queue;
+    return scalar keys %seen;
+}
+
+
+# Read input
+while (<>) {
+    my ($key, @vals) = m/(\w+)/g;
+    # Save links both ways
+    push @{$network{$key}}, @vals;
+    foreach my $val (@vals) {
+        push @{$network{$val}}, $key;
+    }
+}
+
+{   # Traverse a bunch of random paths through the network, and count how many
+    # times each traversal on the network is used.
+    my @nodes = keys %network;
+    foreach (1..1000) {  # Try this many paths
+        my @paths = @{&path($nodes[int rand @nodes], $nodes[int rand @nodes])};
+        # Count how many times each crossing occurred
+        while (@paths > 1) {
+            $counts{join '-', sort { $a cmp $b } @paths[0,1]}++;
+            shift @paths;
+        }
+    }
+}
+
+# Find which connections to cut
+
+my ($snip1, $snip2);    # Declare here so last values are preserved
+# Loop over the top 3 traversals and cut them
+foreach ((sort { $counts{$b} <=> $counts{$a} } keys %counts)[0..2]) {
+    ($snip1, $snip2) = split /-/;
+    # This method is not the paragon of efficiency...
+    @{$network{$snip1}} = grep { $_ ne $snip2 } @{$network{$snip1}};
+    @{$network{$snip2}} = grep { $_ ne $snip1 } @{$network{$snip2}};
+}
+
+# See how big the networks are on each side of the last snip
+my $network1 = &connections($snip1);
+my $network2 = &connections($snip2);
+
+if ($network1 == scalar keys %network) {
+    # Oops, didn't cut the right connection...
+    die 'Something has failed you--it may have been me';
+}
+print $network1 * $network2, "\n";
+
+
+# This does the same thing as the above, but tries harder. It might be more
+# reliable, though the more succinct version above ended up working out.
+
+#use Storable qw/dclone/; # Deep copy of data structures
+#
+## Extract the busiest 10 traversals
+#my @traversals = (sort { $counts{$b} <=> $counts{$a} } keys %counts)[0..9];
+#my %backup = %{ dclone(\%network) };
+## Now pick combinations of 3 of those and try them.
+#for (my $i = 0; $i < @traversals; $i++) {
+#    for (my $j = $i+1; $j < @traversals; $j++) {
+#        for (my $k = $j+1; $k < @traversals; $k++) {
+#            my ($snip1, $snip2);    # Declare here so last values are preserved
+#            foreach (@traversals[$i, $j, $k]) {
+#                ($snip1, $snip2) = split /-/;
+#                # This method is not the paragon of efficiency...
+#                @{$network{$snip1}} = grep { $_ ne $snip2 } @{$network{$snip1}};
+#                @{$network{$snip2}} = grep { $_ ne $snip1 } @{$network{$snip2}};
+#            }
+#
+#            # See how big the networks are on each side of the last snip
+#            my $network1 = &connections($snip1);
+#            my $network2 = &connections($snip2);
+#
+#            # Success
+#            if ($network1 != scalar keys %network) {
+#                print $network1 * $network2, "\n";
+#                exit;
+#            }
+#
+#            # Try again
+#            my %network = %{ dclone(\%backup) };
+#        }
+#    }
+#}
