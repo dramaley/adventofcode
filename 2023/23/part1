@@ -1,0 +1,136 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This overall problem is a network traversal one. We can abstract it into a
+# data structure that measures distance (aka, weight or cost to traverse that
+# link) to other nodes. This complex data structure will look like this:
+#     %network = ("${row}-${col}" => {'prev' => 1,
+#                                     'next' => [[$cost1, "${row1}-${col1}"],
+#                                                [$cost2, "${row2}-${col2}"]]});
+# Where the keys are the coordinates of important nodes in the grid, 'prev' is
+# a count of nodes that point to this one, and 'next' is a list of nodes we
+# point to, with a list of connections and the cost to reach each one.
+our (@grid, %network);
+
+
+# ------------------------------------------------------------------------------
+#  This function recursively builds the %network structure. Arguments:
+#      $curr_row   Current position in the grid
+#      $curr_col   "
+#      $direction  Direction of movement
+#      $prev_node  Label of the previous node
+#  For simplicity, this function builds a network that is inefficient, with all
+#  traversable nodes considered important. Later, another pass (via another
+#  function) will be made through the network to optimize it.
+# ------------------------------------------------------------------------------
+sub build_network {
+    my ($curr_row, $curr_col, $direction, $prev_node) = @_;
+
+    # Put these dictionaries here since this is the only place that uses them.
+    # Note that if we never modify them, the compiler will recognize that and
+    # treat them like constants, only assigning them once.
+
+    # Going against the path is forbidden
+    my %forbidden = ('^' => 'v', 'v' => '^', '<' => '>', '>' => '<');
+    # Which ways should we look? Not but whence we came.
+    my %look = ('^' => ['^', '>', '<'], 'v' => ['v', '>', '<'],
+                '<' => ['^', 'v', '<'], '>' => ['^', 'v', '>']);
+    # Offset to (row, col) for each possible movement
+    my %movements = ('^' => [ -1, 0 ], 'v' => [ 1, 0 ],
+                     '<' => [ 0, -1 ], '>' => [ 0, 1 ]);
+
+    # What are we?
+    my $curr_symbol = $grid[$curr_row][$curr_col];
+    # And what is our name?
+    my $label = $curr_row == $#grid ? 'finish' : "${curr_row}-${curr_col}";
+    # What did it cost to get here? Hint: first one's always free.
+    my $cost = int ($prev_node ne 'start');
+
+    return if $curr_symbol !~ m/[.^v<>]/;               # This is not The Way
+    return if $curr_symbol eq $forbidden{$direction};   # This path is forbidden
+    push @{$network{$prev_node}{'next'}}, [$cost, $label]; # Mark our path
+    return if $label eq 'finish';                       # It is finished
+    $network{$label}{'prev'}++;                         # More path-marking
+    return if $network{$label}{'prev'} > 1;             # We've been here before
+
+    # Which ways can we go from here
+    my @ways = $curr_symbol eq '.' ? @{$look{$direction}} : ($curr_symbol);
+
+    # Try going every which way
+    foreach my $way (@ways) {
+        my ($row_off, $col_off) = @{$movements{$way}};  # Get offsets
+        &build_network($curr_row+$row_off, $curr_col+$col_off, $way, $label);
+    }
+}
+
+# ------------------------------------------------------------------------------
+#  Traverse the network, consolidating chains into single links of equivalent
+#  cost as the chains that existed before.
+#      $prev_ref  Reference to the previous node's pointer to where we're at
+#      $current   Name of the current node
+# ------------------------------------------------------------------------------
+sub optimize_network {
+    my ($prev_ref, $current) = @_;
+
+    while (exists $network{$current}) {
+        # Consolidate chains
+        if ($network{$current}{'prev'} == 1 and         # Only one connection
+            @{$network{$current}{'next'}} == 1) {       #   in each direction
+            my ($cost, $next) = @{$network{$current}{'next'}[0]};
+            $$prev_ref[0] += $cost;     # Fix the previous link to
+            $$prev_ref[1] = $next;      #   skip the current one
+            delete $network{$current};  # Delete the current link
+            $current = $next;           # Move on to the next one
+        }
+        # Process nodes by traversing each connecting chain
+        else {
+            &optimize_network($_, $$_[1])
+                foreach @{$network{$current}{'next'}};
+            last;
+        }
+    }
+}
+
+# ------------------------------------------------------------------------------
+#  Discard the prev/next layer of indirection in the %network structure, as it
+#  is no longer needed.
+# ------------------------------------------------------------------------------
+sub squash_prevnext {
+    $network{$_} = $network{$_}{'next'} foreach keys %network;
+}
+
+# ------------------------------------------------------------------------------
+#  Given a string denoting the history of how we got here, the node we're on
+#  now, and the cost to get here, return a hash of all paths and their cost.
+# ------------------------------------------------------------------------------
+sub find_paths {
+    my ($history, $label, $cost) = @_;
+
+    my $ret_val = {};
+    foreach (@{ $network{$label} }) {
+        my ($next_cost, $next_label) = @$_;
+        my $new_history = "${history},${next_label}";
+        my $new_cost = $cost + $next_cost;
+        return({ "${new_history}" => $new_cost }) if $next_label eq 'finish';
+        my $href = &find_paths($new_history, $next_label, $new_cost);
+        $ret_val = { %$ret_val, %$href };
+    }
+    return $ret_val;
+}
+
+
+@grid = map { chomp; [ split // ] } <>; # Read input
+&build_network(0, 1, 'v', 'start');     # Start is always (0, 1)
+{   # Optimize the network by consolidating chains into individual links
+    my $aref = $network{'start'}{'next'}[0];
+    &optimize_network($aref, $$aref[1]);
+}
+&squash_prevnext;                       # Optimize more by removing indirection
+# Find all paths and their cost
+my %path_costs = %{ &find_paths('start', 'start', 0) };
+# Extract the most expensive one
+my $expensive = (sort { $a <=> $b } values %path_costs)[-1];
+print "${expensive}\n";
