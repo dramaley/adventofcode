@@ -1,0 +1,104 @@
+#!/usr/bin/perl
+
+use 5.14.1;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+# Assumptions (based on examining the input):
+#  - Each brick's coordinates are sorted such that the first coordinate is no
+#    further from (0, 0, 0) than the second coordinate is.
+#  - The lowest X and Y coordinates are 0, the lowest Z coordinate is 1. There
+#    are no negative numbers in the input.
+
+# Find the maximum of a list of numbers
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+
+
+# Read input
+our @bricks = (sort { ($$a[2] <=> $$b[2] or     # Sort on Z, then X & Y axes
+                       $$a[0] <=> $$b[0] or
+                       $$a[1] <=> $$b[1]) }
+               map { [ map { int } m/(\d+)/g ] } <>);
+
+# Convert each brick into lists of coordinates it occupies
+foreach my $ref (@bricks) {
+    my ($x1, $y1, $z1, $x2, $y2, $z2) = @$ref;
+    my @list;
+    foreach my $x ($x1..$x2) {
+        foreach my $y ($y1..$y2) {
+            foreach my $z ($z1..$z2) {
+                push @list, [$x, $y, $z];
+            }
+        }
+    }
+    $ref = \@list;
+}
+
+# Drop any floating bricks
+for (my $this = 0; $this < @bricks; $this++) {
+    my @zees;                                   # List of Z coordinates
+    foreach my $coord (@{$bricks[$this]}) {
+        my ($x, $y) = @$coord;
+        my $z = &max(map { $$_[2] }             # Extract Z
+                     grep { ($$_[0] == $x and   # If X and Y match
+                             $$_[1] == $y) }
+                     map { @{$bricks[$_]} }     # Get all coordinates
+                     0..$this-1);               # Loop over lower bricks
+        push @zees, $z if defined $z;
+    }
+    # Calculate a new Z coordinate for this brick
+    my $new_z = &max(@zees, 0) + 1;
+    # Lower the brick if the new Z is less than the old one
+    if ($new_z < $bricks[$this][0][2]) {
+        my $delta = $bricks[$this][0][2] - $new_z;
+        #print "Dropping brick #${this} by ${delta} units.\n";
+        $$_[2] -= $delta foreach @{$bricks[$this]};
+    }
+}
+
+# Determine which bricks support each other
+my (@supports, @supported_by);
+for (my $this = 0; $this < @bricks; $this++) {
+    foreach my $coord (@{$bricks[$this]}) {
+        my ($x, $y, $z) = @$coord;
+        my $that = $this-1;
+        while ($that >= 0) {
+            last if grep { ($$_[0] == $x and    # Find a brick just below us
+                            $$_[1] == $y and
+                            $$_[2] == ($z-1)) } @{$bricks[$that]};
+            $that--;
+        }
+        # If $that refers to a real brick, then $this is supported by $that
+        if ($that >= 0) {
+            #print "Brick #${this} is resting on #${that}\n";
+            # Record associations each direction. Use hashes for uniqueness.
+            ${$supported_by[$this]}{$that}++;
+            ${$supports[$that]}{$this}++;
+        }
+    }
+}
+# Convert the hashes in these arrays into normal lists
+$_ = [ sort { $a <=> $b } map { int } keys %$_ ] foreach @supports;
+$_ = [ sort { $a <=> $b } map { int } keys %$_ ] foreach @supported_by;
+
+# I am confident there is a faster way to calculate this, but these challenges
+# are getting long so i'm just going with what i could think of first.
+my $falls = 0;
+for (my $this = 0; $this < @bricks; $this++) {
+    my @removals = ($this);
+    while (1) {
+        my @new_removals;
+        for (my $that = 0; $that < @bricks; $that++) {
+            next if $that ~~ @removals;
+            my $sbt = $supported_by[$that];
+            next if @$sbt == 0;
+            push @new_removals, $that
+                if @$sbt == grep { $_ ~~ @removals } @$sbt;
+        }
+        last if not @new_removals;
+        push @removals, @new_removals;
+    }
+    $falls += $#removals;
+}
+print "${falls}\n";
