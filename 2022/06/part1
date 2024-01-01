@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $line = <>;
+$line =~ m/(?:(.)(?!.{0,2}\1)){4}/g;
+print pos($line),"\n";

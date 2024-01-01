@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %sizes;     # Keep track of sizes in each directory
+our @paths;     # This acts as a stack of what directory we're in
+while (<>) {
+    chomp;
+    my (@things) = split / /;
+    if ($things[0] eq '$') {
+        # There are only 2 commands: cd & ls. And ls doesn't actually matter.
+        if ($things[1] eq 'cd') {
+            for ($things[2]) {
+                /\//    && do { @paths = ('/'); last; };
+                /\.\./  && do { pop @paths; last; };
+                /^\w+$/ && do { push @paths, $paths[-1].'/'.$things[2]; last; };
+            }
+        }
+    } else {
+        next if $things[0] eq 'dir';
+        die if $things[0] !~ /^\d+$/;
+        $sizes{$_} += $things[0] foreach @paths;
+    }
+}
+
+my $size = $sizes{(sort { $sizes{$a} <=> $sizes{$b} }
+                   grep { 40000000 - $sizes{'/'} + $sizes{$_} >= 0 }
+                   keys %sizes)[0]};
+print "${size}\n";
