@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my @array;
+my $i = 0;
+m/^(\d+)/ ? $array[$i] += $1 : $i++ while <>;
+print '', (sort { $a <=> $b } @array)[-1], "\n";

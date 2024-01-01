@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my @duplicates;
+while (<>) {
+    my (%c1, %c2);  # Compartments 1 & 2
+    chomp;
+    my $midpoint = length() / 2;
+    @c1{split //, substr($_, 0, $midpoint, '')} = ();
+    @c2{split //} = ();
+    push @duplicates, grep { exists $c2{$_} } keys %c1;
+}
+
+my %priorities;
+@priorities{'a'..'z','A'..'Z'} = (1..52);
+
+my $sum = 0;
+$sum += $priorities{$_} foreach @duplicates;
+print "${sum}\n";

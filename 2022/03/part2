@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my @badges;
+my @sacks;
+while (<>) {
+    chomp;
+    my %hash;
+    @hash{split//} = ();
+    push @sacks, \%hash;
+    if ($. %3 == 0) {
+        push @badges, grep { (exists $sacks[1]{$_} and
+                              exists $sacks[2]{$_}) } keys %{$sacks[0]};
+        @sacks = ();
+    }
+}
+
+my %priorities;
+@priorities{'a'..'z','A'..'Z'} = (1..52);
+
+my $sum = 0;
+$sum += $priorities{$_} foreach @badges;
+print "${sum}\n";

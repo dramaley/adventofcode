@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my @array;
+my $i = 0;
+m/^(\d+)/ ? $array[$i] += $1 : $i++ while <>;
+
+my $sum = 0;
+$sum += $_ foreach (sort { $b <=> $a } @array)[0..2];
+print "${sum}\n";

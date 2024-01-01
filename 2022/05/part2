@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read the stacks
+my @stacks = (['']);    # Put a dummy value in index 0 since we're not using it
+while (<>) {
+    last if /^$/;
+    unshift @{$stacks[(pos() - 3) / 4 + 1]}, $1 while m/\[([A-Z])\]/g
+}
+
+# Make some moves
+while (<>) {
+    my ($quantity, $from, $to) = m/(\d+)/g;
+    push @{$stacks[$to]}, splice @{$stacks[$from]}, -$quantity;
+}
+
+my $result = '';
+$result .= $_ foreach map { $$_[-1] } @stacks;
+print "${result}\n";
