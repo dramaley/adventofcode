@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use 5.14.0;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+our @important = (20, 60, 100, 140, 180, 220);  # Which cycles matter
+our $cycle = 0;
+our $X = 1;
+
+my $sum = 0;
+while (<>) {
+    chomp;
+    my ($op, $val) = split / /;
+    $cycle++;
+    $sum += $X * $cycle if $cycle ~~ @important;
+    if ($op eq 'addx') {
+        $cycle++;
+        $sum += $X * $cycle if $cycle ~~ @important;
+        $X += $val;
+    }
+}
+print "${sum}\n";

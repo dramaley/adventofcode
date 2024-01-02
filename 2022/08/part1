@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @grid = map { chomp; [ split // ] } <>;
+our $max_row = $#grid;
+our $max_col = $#{$grid[0]};
+
+my $count = 0;
+foreach my $row (0..$#grid) {
+    foreach my $col (0..$max_row) {
+        my $height = $grid[$row][$col];
+        $count++
+            if (not grep { $grid[$row][$_] >= $height } 0..$col-1 or
+                not grep { $grid[$row][$_] >= $height } $col+1..$max_col or
+                not grep { $grid[$_][$col] >= $height } 0..$row-1 or
+                not grep { $grid[$_][$col] >= $height } $row+1..$max_row);
+    }
+}
+print "${count}\n";

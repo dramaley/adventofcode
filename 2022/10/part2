@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use 5.14.0;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+our $cycle = 0;
+our $X = 1;
+our $screen = ' ' x 240;
+
+# Draw a pixel if everything aligns
+sub draw {
+    substr($screen, $cycle, 1, 'X') if abs($X - $cycle % 40) <= 1;
+}
+
+while (<>) {
+    chomp;
+    my ($op, $val) = split / /;
+    &draw;
+    $cycle++;
+    if ($op eq 'addx') {
+        &draw;
+        $cycle++;
+        $X += $val;
+    }
+}
+
+print substr($screen, 0, 40, ''), "\n" while $screen;

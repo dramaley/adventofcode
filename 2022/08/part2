@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @grid = map { chomp; [ split // ] } <>;
+our $max_row = $#grid;
+our $max_col = $#{$grid[0]};
+
+my $top_score = 0;
+foreach my $row (0..$#grid) {
+    foreach my $col (0..$max_row) {
+        my $height = $grid[$row][$col];
+        my ($n, $s, $e, $w) = (0, 0, 0, 0);
+        # Look west
+        for (my $i = $col - 1; $i >= 0; $i--) {
+            $w++;
+            last if $grid[$row][$i] >= $height;
+        }
+        # Look east
+        for (my $i = $col + 1; $i <= $max_col; $i++) {
+            $e++;
+            last if $grid[$row][$i] >= $height;
+        }
+        # Look north
+        for (my $i = $row - 1; $i >= 0; $i--) {
+            $n++;
+            last if $grid[$i][$col] >= $height;
+        }
+        # Look south
+        for (my $i = $row + 1; $i <= $max_row; $i++) {
+            $s++;
+            last if $grid[$i][$col] >= $height;
+        }
+        my $score = $n * $s * $e * $w;
+        $top_score = $score if $score > $top_score;
+    }
+}
+print "${top_score}\n";

@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %moves = ('U' => [-1, 0], 'D' => [1, 0], 'L' => [0, -1], 'R' => [0, 1]);
+our ($h_row, $h_col, $t_row, $t_col) = (0) x 4;
+our %visited = ("${t_row},${t_col}" => undef);
+
+while (<>) {
+    chomp;
+    my ($dir, $dist) = split / /;               # Direction and distance
+    my ($row_off, $col_off) = @{$moves{$dir}};  # Get offsets
+    foreach (1..$dist) {
+        $h_row += $row_off;                     # Update head position
+        $h_col += $col_off;
+        # No further action if tail is still nearby
+        next if abs($h_row - $t_row) <= 1 and abs($h_col - $t_col) <= 1;
+        $t_row += $h_row - $t_row <=> 0;
+        $t_col += $h_col - $t_col <=> 0;
+        $visited{"${t_row},${t_col}"} = ();
+    }
+}
+
+print scalar(keys %visited), "\n";
