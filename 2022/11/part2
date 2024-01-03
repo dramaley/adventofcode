@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Math::Utils qw/lcm/;
+
+# This input parser is super limited and relies on a lot of assumptions that
+# happen to be true for our input:
+#   Monkeys are ordered consecutively in the input
+#   The "Operation" field always consists of the pattern "new = <equation>"
+#   "Test" is always "divisible by N", for different values of N
+#   True/False operations are always "throw to monkey N", for some N
+#   Each monkey is fully defined with all fields
+our @monkeys;
+{
+    my @input;
+    my $i = 0;
+    while (<>) {
+        chomp;
+        /^Monkey/      && do { next; }; # Don't care; we're using $i
+        /^ *Starting/  && do { $input[$i]{'items'} = [ m/(\d+)/g ];    next; };
+        /^ *Operation/ && do { $input[$i]{'oper'} = $1 if m/= (.*)$/;  next; };
+        /^ *Test/      && do { $input[$i]{'divisor'} = $1 if m/(\d+)/; next; };
+        /^ *If true/   && do { $input[$i]{'true'} = $1 if m/(\d+)/;    next; };
+        /^ *If false/  && do { $input[$i]{'false'} = $1 if m/(\d+)/;   next; };
+        /^$/           && do { $i++; next; };
+        die "Unaccounted input '$_'";
+    }
+
+    # Convert everything we learned about the monkeys into something useful.
+    # Use least-common-multiple to keep numbers from growing huge.
+    my $lcm = lcm(map { $$_{'divisor'} } @input);
+    foreach my $href (@input) {
+        $$href{'oper'} =~ s/old/\$item/g;
+        # This technique is ugly, do not copy except in cases of dire need
+        my $function = "sub { my (\$item) = \@_; \$item = ($$href{'oper'}) % ${lcm}; push \@{\$monkeys[\$item % $$href{'divisor'} == 0 ? $$href{'true'} : $$href{'false'}]{'items'}}, \$item; };";
+        push @monkeys, { 'items' => $$href{'items'}, 'func' => eval $function };
+    }
+}
+
+my @inspection;
+foreach my $round (1..10000) {
+    foreach my $i (0..$#monkeys) {
+        my ($items, $func) = @{$monkeys[$i]}{'items', 'func'};
+        $inspection[$i] += scalar @$items;
+        &$func(shift @$items) while @$items;
+    }
+}
+
+my $monkey_business = 1;
+$monkey_business *= $_ foreach (sort { $b <=> $a } @inspection)[0,1];
+print "${monkey_business}\n";
