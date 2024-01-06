@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @grid;
+our ($start_row, $start_col, $dest_row, $dest_col);
+
+# Read the grid and note start and destination coordinates
+while (<>) {
+    chomp;
+    push @grid, [ split // ];
+    if (m/S/g) {
+        ($start_row, $start_col) = ($. - 1, pos() - 1);
+        $grid[$start_row][$start_col] = 'a';
+    }
+    if (m/E/g) {
+        ($dest_row, $dest_col) = ($. - 1, pos() - 1);
+        $grid[$dest_row][$dest_col] = 'z';
+    }
+}
+
+# Convert the grid to numbers 1..26
+@grid = map { [ map { ord() - 96 } @$_ ] } @grid;
+
+# Add a border around the grid to avoid the need for edge detection
+@grid = map { [ ~0, @$_, ~0 ] } @grid;
+unshift @grid, [ (~0) x @{$grid[0]} ];
+push @grid, [ (~0) x @{$grid[0]} ];
+$start_row++;   # Compensate for the row and column we added
+$start_col++;
+$dest_row++;
+$dest_col++;
+
+# Generate a key for the %seen hash. Made into a function to ensure consistency.
+sub make_key { return join('_', @_[0, 1] ); }
+
+# Find the shortest path using breadth-first search
+my $last_key = &make_key($dest_row, $dest_col);
+my @queue = ([ $start_row, $start_col ]);
+my %seen;
+FOUND:
+while (@queue) {
+    my ($this_row, $this_col) = @{ shift @queue };
+    # Get a list of adjacent points that have not been visited yet
+    my @neighbors =
+        (# Make sure this neighbor is not too high
+         grep { $grid[$$_[0]][$$_[1]] <= $grid[$this_row][$this_col] + 1 }
+         # Only check neighbors that have not been visited yet
+         grep { !$seen{&make_key(@$_)} }
+         # List of all neighboring points
+         ([$this_row-1, $this_col], [$this_row+1, $this_col],
+          [$this_row, $this_col-1], [$this_row, $this_col+1]));
+    foreach my $neighbor (@neighbors) {
+        my ($n_row, $n_col) = @$neighbor;
+        my $n_key = &make_key(@$neighbor);
+        # Add the pair (neighbor, this) to the spanning tree
+        $seen{$n_key} = [$this_row, $this_col];
+        if ($n_key eq $last_key) {
+            last FOUND;                 # Found the end, bail out
+        } else {
+            push @queue, $neighbor;     # Haven't found the end yet
+        }
+    }
+}
+
+# Once the end has been found, walk the spanning tree backward to find the path
+# from the end vertex back to the start.
+my $count = 0;
+my $start_key = &make_key($start_row, $start_col);
+my $this = $last_key;
+while ($this ne $start_key) {
+    $this = &make_key(@{$seen{$this}});
+    $count++;
+}
+print "${count}\n";
