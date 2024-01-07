@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+sub compare {
+    my ($lhs, $rhs) = @_;
+    return $lhs <=> $rhs if not (ref $lhs or ref $rhs); # Both are integers
+    return &compare([ $lhs ], $rhs) if not ref $lhs;    # One is an integer
+    return &compare($lhs, [ $rhs ]) if not ref $rhs;
+    return @$lhs <=> @$rhs if not (@$lhs and @$rhs);    # Empty list(s)
+    return (&compare($$lhs[0], $$rhs[0]) or             # Non-empty lists
+            &compare([ @$lhs[1..$#$lhs] ], [ @$rhs[1..$#$rhs] ]));
+}
+
+my @input = map { eval } grep { not /^$/ } <>;
+my @dividers = ([[2]], [[6]]);
+# Mangle the input and dividers in different ways so they can be differentiated
+@input = map { [0, $_] } @input;
+@dividers = map { [1, $_] } @dividers;
+# Now sort and evaluate the results
+my @sorted = sort { compare($$a[1], $$b[1]) } @input, @dividers;
+my $product = 1;
+$product *= $_ + 1 foreach grep { $sorted[$_][0] } 0..$#sorted;
+print "${product}\n";

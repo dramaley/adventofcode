@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+sub compare {
+    my ($lhs, $rhs) = @_;
+    return $lhs <=> $rhs if not (ref $lhs or ref $rhs); # Both are integers
+    return &compare([ $lhs ], $rhs) if not ref $lhs;    # One is an integer
+    return &compare($lhs, [ $rhs ]) if not ref $rhs;
+    return @$lhs <=> @$rhs if not (@$lhs and @$rhs);    # Empty list(s)
+    return (&compare($$lhs[0], $$rhs[0]) or             # Non-empty lists
+            &compare([ @$lhs[1..$#$lhs] ], [ @$rhs[1..$#$rhs] ]));
+}
+
+my @input = map { eval } grep { not /^$/ } <>;
+my $sum = 0;
+for (my $i = 0; $i < @input; $i += 2) {
+    $sum += $i/2+1 if &compare($input[$i], $input[$i+1]) <= 0;
+}
+print "${sum}\n";
