@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (@grid, $max_row, $max_col);
+
+# Functions with obvious names
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+sub min { return (sort { $a <=> $b } @_)[0]; }
+
+# Simulate a grain of sand falling until it stops or goes out of bounds
+sub sand {
+    my ($row, $col) = @_;
+    # We hit something
+    return 1 if (defined $grid[$row] and        # "defined" twice to prevent
+                 defined $grid[$row][$col] and  # autovivification
+                 $grid[$row][$col] =~ m/[#o]/);
+    # Out of bounds
+    return 0 if $row > $max_row or $col < 0 or $col > $max_col;
+
+    my $ret_val = (&sand($row+1, $col) and      # Test the grid below,
+                   &sand($row+1, $col-1) and    # below to the left, and
+                   &sand($row+1, $col+1));      # below to the right
+    $grid[$row][$col] = 'o' if $ret_val;
+    return $ret_val;
+}
+
+
+# Read input
+while (<>) {
+    my @points = reverse m/(\d+)/g;
+    while (@points >= 4) {
+        if ($points[0] == $points[2]) {         # Same row -> horizontal
+            my $row = $points[0];
+            my $col1 = &min(@points[1,3]);
+            my $col2 = &max(@points[1,3]);
+            $grid[$row][$_] = '#' foreach $col1..$col2;
+        } elsif ($points[1] == $points[3]) {    # Same column -> vertical
+            my $col = $points[1];
+            my $row1 = &min(@points[0,2]);
+            my $row2 = &max(@points[0,2]);
+            $grid[$_][$col] = '#' foreach $row1..$row2;
+        } else {
+            die 'Diagonals not supported';
+        }
+        splice @points, 0, 2;
+    }
+}
+
+# Determine the boundaries of the grid
+$max_row = $#grid;
+$max_col = &max(map { $#$_ } @grid);
+
+# Fill in the empty spaces in the grid
+foreach my $row (0..$max_row) {
+    foreach my $col (0..$max_col) {
+        $grid[$row][$col] = '.' if not defined $grid[$row][$col];
+    }
+}
+
+# Drop some sand then count how much stuck to the grid
+&sand(0, 500);
+my $sum = grep { /o/ } map { @$_ } @grid;
+print "${sum}\n";
+
+# Print the grid
+#print join('', @$_), "\n" foreach @grid;
