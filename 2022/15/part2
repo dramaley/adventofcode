@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+#our $max_xy = 20;       # Maximum X and Y coordinate to consider (sample)
+our $max_xy = 4000000;  # Maximum X and Y coordinate to consider (real input)
+
+our @inputs = map { [ m/([-\d]+)/g ] } <>;
+
+# Brute force it simply because coding this and running it over all 4000000
+# iterations will take less time than coding a more elegant solution.
+for (my $y = 0; $y <= $max_xy; $y++) {
+    #print "status: $y\n" if $y % 100000 == 0;
+    my @ranges;
+    foreach (@inputs) {
+        my ($sensor_x, $sensor_y, $beacon_x, $beacon_y) = @$_;
+        # How far from the sensor to its beacon
+        my $distance = abs($sensor_x - $beacon_x) + abs($sensor_y - $beacon_y);
+        # Translate to the row under examination ($y); how much remains?
+        $distance -= abs($sensor_y - $y);
+        # If any distance remains, then the area seen intersects with the row
+        # under examination; save the range on that row that the sensor can see.
+        if ($distance > 0) {
+            push @ranges, [ $sensor_x - $distance, $sensor_x + $distance ];
+        }
+    }
+
+    # Sort the ranges that were found
+    @ranges = sort { $$a[0] <=> $$b[0] or $$a[1] <=> $$b[1] } @ranges;
+
+    # Optimize overlapping/adjacent ranges
+    my $i = 0;
+    while ($i < $#ranges) {
+        my ($this, $next) = @ranges[$i, $i+1];
+        if ($$this[1] + 1 >= $$next[0]) {   # Either overlap or adjacent
+            $$this[1] = $$next[1]
+                if $$next[1] > $$this[1];   # Next extends beyond this
+            splice @ranges, $i+1, 1;        # Delete next
+            next;
+        }
+        $i++;
+    }
+
+    # Discard ranges that are outside the area in question
+    @ranges = grep { $$_[0] <= $max_xy and $$_[1] >= 0 } @ranges;
+
+    # At this point we should only have 1 range that includes the entire area
+    # from 0 to $max_xy...
+    next if @ranges == 1;
+
+    # ...Unless we found the solution.
+    print 4000000 * ($ranges[0][1] + 1) + $y, "\n";
+    last;
+}

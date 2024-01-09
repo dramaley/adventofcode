@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @ranges;
+#our $y = 10;        # What row to check (sample)
+our $y = 2000000;   # What row to check (real input)
+
+foreach (map { [ m/([-\d]+)/g ] } <>) {
+    my ($sensor_x, $sensor_y, $beacon_x, $beacon_y) = @$_;
+    # How far from the sensor to its beacon
+    my $distance = abs($sensor_x - $beacon_x) + abs($sensor_y - $beacon_y);
+    # Translate to the row under examination ($y); how much distance is left?
+    $distance -= abs($sensor_y - $y);
+    # If any distance was left, then the area seen intersects with the row under
+    # examination; save the range on that row that the sensor can see.
+    if ($distance > 0) {
+        push @ranges, [ $sensor_x - $distance, $sensor_x + $distance ];
+    }
+}
+
+# Sort the ranges that were found
+@ranges = sort { $$a[0] <=> $$b[0] or $$a[1] <=> $$b[1] } @ranges;
+
+# Fix overlapping ranges
+my $i = 0;
+while ($i < $#ranges) {
+    my ($this, $next) = @ranges[$i, $i+1];
+    if ($$this[1] >= $$next[0]) {       # Next starts within this; overlap
+        $$this[1] = $$next[1]
+            if $$next[1] > $$this[1];   # Next extends beyond this
+        splice @ranges, $i+1, 1;        # Delete next
+        next;
+    }
+    $i++;
+}
+
+my $sum = 0;
+$sum += $$_[1] - $$_[0] foreach @ranges;
+print "${sum}\n";
