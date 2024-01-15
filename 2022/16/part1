@@ -1,0 +1,122 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+our $start = 'AA';
+
+our (%map, %rate);
+while (<>) {
+    if (m/Valve (\w+) has flow rate=(\d+); tunnels? leads? to valves? ([\w, ]+)/) {
+        # Cost of each path leading away, and the destination
+        $map{$1}{$_} = 1 foreach split /, /, $3;
+        # Flow rate for this valve
+        $rate{$1} = int $2;
+    } else {
+        die 'Bad input';
+    }
+}
+
+# Optimize the map by deleting nodes with stuck valves
+$rate{$start}++;    # Don't delete the start node while optimizing
+while (my @zeroes = grep { !$rate{$_} } keys %rate) {
+    foreach my $zero (@zeroes) {
+        while (keys %{$map{$zero}}) {
+            my $v1 = (keys %{$map{$zero}})[0];
+            my $c1 = delete $map{$zero}{$v1};
+            while (my ($v2, $c2) = each %{$map{$zero}}) {
+                my $newcost = $c1 + $c2;
+                # Link $v1 to $v2 directly, bypassing $zero
+                delete $map{$v1}{$zero};
+                $map{$v1}{$v2} = $newcost;
+                delete $map{$v2}{$zero};
+                $map{$v2}{$v1} = $newcost;
+            }
+        }
+        # $zero is no longer connected; just delete it
+        delete $map{$zero};
+        delete $rate{$zero};
+    }
+}
+$rate{$start}--;    # Restore original value
+
+# Populate missing paths
+{   my @extras;
+    for my $v1 (keys %map) {
+        # Find what paths we already have
+        my @existing = ($v1, keys %{$map{$v1}});
+        # What paths we are missing
+        my @missing = grep { $rate{$_} } grep { not $_ ~~ @existing } keys %map;
+
+        foreach my $v2 (@missing) {
+            my @solutions = ();
+            my @queue = ([$v1, 0]);
+            while (@queue) {
+                my ($this, $cost, @visited) = @{ shift @queue };
+                if ($this eq $v2) {
+                    push @solutions, $cost;
+                    next;
+                }
+                next if $this ~~ @visited;
+                # Add connecting valves to the queue
+                foreach my $next (keys %{$map{$this}}) {
+                    my $new_cost = $cost + $map{$this}{$next};
+                    push @queue, [$next, $new_cost, @visited, $this ];
+                }
+            }
+            # Save the cheapest path cost and actually create it later to avoid
+            # cluttering %map while in the middle of finding paths.
+            my $cheapest = (sort { $a <=> $b } @solutions)[0];
+            push @extras, [ $v1, $v2, $cheapest ];
+        }
+    }
+    # Now fill in all the extra paths using the info saved earlier
+    foreach (@extras) {
+        my ($v1, $v2, $cost) = @$_;
+        $map{$v1}{$v2} = $cost;
+        $map{$v2}{$v1} = $cost;
+    }
+}
+
+our @solutions;
+our %history;
+our @queue = ([$start, 30, 0, sort grep { $rate{$_} } keys %rate]);
+while (@queue) {
+    my ($position, $time_left, $released, @unopened) = @{ shift @queue };
+
+    # Stop if time has run out
+    if ($time_left <= 0) {
+        push @solutions, $released;
+        next;
+    }
+
+    # Bail out if we've been here before and had released as much or more
+    {   my $key = join('-', $position, $time_left, @unopened);
+        next if defined $history{$key} and $history{$key} >= $released;
+        $history{$key} = $released;
+    }
+
+    # Open the current valve if it's not stuck
+    if ($rate{$position}) {
+        $time_left--;
+        $released += $rate{$position} * $time_left;
+        @unopened = grep { $_ ne $position } @unopened;
+    }
+
+    # Stop if we opened the last valve
+    if (not @unopened) {
+        push @solutions, $released;
+        next;
+    }
+
+    # Recurse to all unopened connecting valves
+    foreach my $new_pos (sort grep { $_ ~~ @unopened } keys %{$map{$position}}) {
+        my $time_cost = $map{$position}{$new_pos};
+        push @queue, [ $new_pos, $time_left-$time_cost, $released, @unopened ];
+    }
+}
+
+my $solution = (sort { $a <=> $b } @solutions)[-1];
+print "${solution}\n";
