@@ -1,0 +1,167 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+our $start = 'AA';
+
+our (%map, %rate);
+while (<>) {
+    if (m/Valve (\w+) has flow rate=(\d+); tunnels? leads? to valves? ([\w, ]+)/) {
+        # Cost of each path leading away, and the destination
+        $map{$1}{$_} = 1 foreach split /, /, $3;
+        # Flow rate for this valve
+        $rate{$1} = int $2;
+    } else {
+        die 'Bad input';
+    }
+}
+
+# Optimize the map by deleting nodes with stuck valves
+$rate{$start}++;    # Don't delete the start node while optimizing
+while (my @zeroes = grep { !$rate{$_} } keys %rate) {
+    foreach my $zero (@zeroes) {
+        while (keys %{$map{$zero}}) {
+            my $v1 = (keys %{$map{$zero}})[0];
+            my $c1 = delete $map{$zero}{$v1};
+            while (my ($v2, $c2) = each %{$map{$zero}}) {
+                my $newcost = $c1 + $c2;
+                # Link $v1 to $v2 directly, bypassing $zero
+                delete $map{$v1}{$zero};
+                $map{$v1}{$v2} = $newcost;
+                delete $map{$v2}{$zero};
+                $map{$v2}{$v1} = $newcost;
+            }
+        }
+        # $zero is no longer connected; just delete it
+        delete $map{$zero};
+        delete $rate{$zero};
+    }
+}
+$rate{$start}--;    # Restore original value
+
+# Populate missing paths
+{   my @extras;
+    for my $v1 (keys %map) {
+        # Find what paths we already have
+        my @existing = ($v1, keys %{$map{$v1}});
+        # What paths we are missing
+        my @missing = grep { $rate{$_} } grep { not $_ ~~ @existing } keys %map;
+
+        foreach my $v2 (@missing) {
+            my @solutions = ();
+            my @queue = ([$v1, 0]);
+            while (@queue) {
+                my ($this, $cost, @visited) = @{ shift @queue };
+                if ($this eq $v2) {
+                    push @solutions, $cost;
+                    next;
+                }
+                next if $this ~~ @visited;
+                # Add connecting valves to the queue
+                foreach my $next (keys %{$map{$this}}) {
+                    my $new_cost = $cost + $map{$this}{$next};
+                    push @queue, [$next, $new_cost, @visited, $this ];
+                }
+            }
+            # Save the cheapest path cost and actually create it later to avoid
+            # cluttering %map while in the middle of finding paths.
+            my $cheapest = (sort { $a <=> $b } @solutions)[0];
+            push @extras, [ $v1, $v2, $cheapest ];
+        }
+    }
+    # Now fill in all the extra paths using the info saved earlier
+    foreach (@extras) {
+        my ($v1, $v2, $cost) = @$_;
+        $map{$v1}{$v2} = $cost;
+        $map{$v2}{$v1} = $cost;
+    }
+}
+
+# For Part 2, added $path to the queue. Path information will be used to
+# discover disjoint (non-overlapping) paths.
+
+our @partial;
+{   my %history;
+    my @queue = ([$start, 26, 0, $start, sort grep { $rate{$_} } keys %rate]);
+    while (@queue) {
+        my ($position,$time_left,$released,$path,@unopened) = @{ shift @queue };
+
+        # Stop if time has run out
+        if ($time_left <= 0) {
+            push @partial, [ $released, $path ];
+            next;
+        }
+
+        # Bail out if we've been here before and had released as much or more
+        {   my $key = join('-', $position, $time_left, @unopened);
+            next if defined $history{$key} and $history{$key} >= $released;
+            $history{$key} = $released;
+        }
+
+        # Open the current valve if it's not stuck
+        if ($rate{$position}) {
+            $time_left--;
+            $released += $rate{$position} * $time_left;
+            @unopened = grep { $_ ne $position } @unopened;
+        }
+
+        # Stop if we opened the last valve
+        if (not @unopened) {
+            push @partial, [ $released, $path ];
+            next;
+        }
+
+        # Recurse to all unopened connecting valves
+        foreach my $new_pos (sort grep { $_ ~~ @unopened }
+                             keys %{ $map{$position} }) {
+            my $time_cost = $map{$position}{$new_pos};
+            push @queue, [ $new_pos, $time_left-$time_cost, $released,
+                           "${path}-${new_pos}", @unopened ];
+        }
+    }
+}
+
+# Now we have a list of solutions and the valves that were opened on each. If
+# we examine pairs of disjoint sets, the final solution should appear.
+
+# Build a new data structure that compresses the paths into visited nodes,
+# removing duplicates in the process.
+our %partial_hash;
+foreach my $aref (@partial) {
+    my $release = $$aref[0];
+    my @valves = split /-/, $$aref[1];
+    shift @valves;  # All lists share $start as their first entry; ignore it
+    my $key = join('-', sort @valves);
+    next if defined $partial_hash{$key} and $partial_hash{$key} > $release;
+    $partial_hash{$key} = $release;
+}
+
+# Now convert the keys into hashes for easy set comparisons. Unfortunately,
+# Perl doesn't naturally (see Tie::RefHash for a way to do it anyway) allow
+# using an entire hash as a hash key, so build this in an array instead.
+our @partial_sets;
+while (my ($key, $val) = each %partial_hash) {
+    my %hash;
+    @hash{split /-/, $key} = ();
+    push @partial_sets, [ $val, \%hash ];
+}
+
+# Find all combinations of disjointed sets and save the combined release
+our @disjoints;
+for (my $i = 0; $i < @partial_sets; $i++) {
+    my ($release1, $hash1) = @{$partial_sets[$i]};
+    my $hash1len = scalar %$hash1;
+    for (my $j = $i+1; $j < @partial_sets; $j++) {
+        my ($release2, $hash2) = @{$partial_sets[$j]};
+        my $hash2len = scalar %$hash2;
+        my %combined = (%$hash1, %$hash2);
+        push @disjoints, $release1 + $release2
+            if $hash1len + $hash2len == scalar %combined;
+    }
+}
+
+my $solution = (sort { $a <=> $b } @disjoints)[-1];
+print "${solution}\n";
