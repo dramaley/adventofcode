@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Define rocks in a special format; for each one:
+#   width of the rock (columns),
+#   list of (row, col) coordinates of solid pieces
+our @rocks = ([4, [0,0], [0,1], [0,2], [0,3]],          # Horizontal line; "-"
+              [3, [0,1], [1,0], [1,1], [1,2], [2,1]],   # Plus shape; "+"
+              [3, [0,0], [0,1], [0,2], [1,2], [2,2]],   # Reverse L; "⅃"
+              [1, [0,0], [1,0], [2,0], [3,0]],          # Vertical line; "|"
+              [2, [0,0], [0,1], [1,0], [1,1]]);         # Solid 2×2; "o"
+our $rocks_max = scalar @rocks;
+
+# There's only 1 line of input, but use map to chomp and split in 1 line, then
+# convert "<" and ">" into increment values -1 and 1.
+our @jet = map { /</ ? -1 : 1 } map { chomp; split // } <>;
+our $jet_max = scalar @jet;
+
+# Define our chamber, with a solid floor
+our $width = 7;
+our @chamber = ([(1) x $width]);
+
+my $j = 0;      # Jet counter
+for (my $i = 0; $i < 2022; $i++) {
+    # Get the next rock
+    my ($rock_cols, @rock_coords) = @{$rocks[$i % $rocks_max]};
+    # Initial position of the rock
+    my ($pos_row, $pos_col) = (@chamber + 3, 2);
+    while (1) {
+        # First process the movement caused by jets of hot gas
+
+        # Get the horizontal direction of the jet
+        my $horiz = $jet[$j++ % $jet_max];
+        # Cancel movement if it would cause the rock to go out of bounds
+        $horiz = 0 if ($pos_col + $horiz < 0 or
+                       $pos_col + $horiz + $rock_cols > $width);
+        # Check if movement would cause the rock to hit something
+        if ($horiz) {
+            foreach (@rock_coords) {
+                my ($row, $col) = @$_;
+                $row += $pos_row;
+                $col += $pos_col + $horiz;
+                if (defined $chamber[$row] and $chamber[$row][$col]) {
+                    # Found an intersection; cancel the movement
+                    $horiz = 0;
+                    last;
+                }
+            }
+        }
+        # Update the column with the horiz of movement
+        $pos_col += $horiz;
+
+        # Next process downward movement
+
+        # Check if movement would cause the rock to hit something
+        my $vert = -1;  # Vertical movement
+        foreach (@rock_coords) {
+            my ($row, $col) = @$_;
+            $row += $pos_row + $vert;
+            $col += $pos_col;
+            if (defined $chamber[$row] and $chamber[$row][$col]) {
+                # Found an intersection; cancel the movement
+                $vert = 0;
+                last;
+            }
+        }
+        if ($vert) {
+            # The rock is clear to move
+            $pos_row += $vert;
+        } else {
+            # Rock intersected with something, so lock it down.
+            foreach (@rock_coords) {
+                my ($row, $col) = @$_;
+                $row += $pos_row;
+                $col += $pos_col;
+                # Expand the chamber if it's not tall enough
+                $chamber[$row] = [(0) x $width]
+                    if not defined $chamber[$row];
+                # Imprint the rock in the chamber structure
+                $chamber[$row][$col] = 1;
+            }
+            last;   # Exit the while(1) loop
+        }
+    }
+}
+
+# Print the chamber
+#print map { join('', map { tr/01/.#/; $_ } @{$chamber[$_]}) . "\n" } reverse 0..$#chamber;
+
+print $#chamber, "\n";
