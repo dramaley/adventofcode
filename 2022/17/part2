@@ -2,7 +2,11 @@
 
 use 5.8.1;
 use strict;
+use utf8;                               # Source contains UTF-8
+use open ':std', ':encoding(UTF-8)';    # Terminal supports UTF-8
 use warnings 'all';
+
+our $iterations = 1000000000000;        # This number isn't sensible. Why?!
 
 # Define rocks in a special format; for each one:
 #   width of the rock (columns),
@@ -22,9 +26,12 @@ our $jet_max = scalar @jet;
 # Define our chamber, with a solid floor
 our $width = 7;
 our @chamber = ([(1) x $width]);
+our @tallest = ((0) x $width);  # Height of the tallest rock in each column
 
 my $jet_counter = 0;
-for (my $i = 0; $i < 2022; $i++) {
+my (%seen_hash, @seen_list);    # Used for cycle detection
+BIGLOOP:
+for (my $i = 0; $i < $iterations; $i++) {
     # Get the next rock
     my ($rock_cols, @rock_coords) = @{$rocks[$i % $rocks_max]};
     # Initial position of the rock
@@ -39,8 +46,6 @@ for (my $i = 0; $i < 2022; $i++) {
                        $pos_col + $horiz + $rock_cols > $width);
         # Check if movement would cause the rock to hit something
         if ($horiz) {
-            # "if grep..." uses fewer lines than "foreach..." at the cost of
-            # not being able to bail out early with "last".
             foreach (@rock_coords) {
                 my ($row, $col) = @$_;
                 $row += $pos_row;
@@ -51,10 +56,6 @@ for (my $i = 0; $i < 2022; $i++) {
                     last;
                 }
             }
-            #$horiz = 0 if grep { my $row = $$_[0] + $pos_row;
-            #                     my $col = $$_[1] + $pos_col + $horiz;
-            #                     (defined $chamber[$row] and
-            #                      $chamber[$row][$col]); } @rock_coords;
         }
         # Update the column with the horizontal movement
         $pos_col += $horiz;
@@ -87,15 +88,56 @@ for (my $i = 0; $i < 2022; $i++) {
                     if not defined $chamber[$row];
                 # Imprint the rock in the chamber structure
                 $chamber[$row][$col] = 1;
+                # Update @tallest
+                $tallest[$col] = $row if $row > $tallest[$col];
             }
             last;   # Exit the while(1) loop
         }
     }
     # Keep $jet_counter from getting too big
     $jet_counter %= $jet_max;
+
+    # Detect repetition so we don't have to simulate all the rocks
+    {   # How far down from the top is the rock in each column
+        my @deltas = map { $#chamber - $_ } @tallest;
+        my $cycle_key = join('-', $jet_counter, ($i % $rocks_max), @deltas);
+
+        # Save the info we need to calculate final height after cycle detection
+        push @seen_list, $#chamber;
+
+        # Try to detect a cycle
+        if (exists $seen_hash{$cycle_key}) {
+            # Cycle detected!
+            my $prev = $seen_hash{$cycle_key};
+            my $curr = $#seen_list;
+
+            # Height of the chamber at each end of the cycle
+            my $prev_height = $seen_list[$prev];
+            my $curr_height = $#chamber;
+
+            # How many complete cycles to reach the goal
+            my $cycles = int(($iterations - $curr) / ($curr - $prev));
+            # Remainder after the last full cycle
+            my $remain = ($iterations - $curr) % ($curr - $prev);
+
+            # Take the current chamber height
+            my $final = $curr_height;
+            # Add the complete cycles
+            $final += $cycles * ($curr_height - $prev_height);
+            # Handle the remainder
+            $final += $seen_list[$prev + $remain] - $prev_height - 1;
+
+            # Here's the answer!
+            print "${final}\n";
+
+            # Exit the loop rather than the entire program in case we want to
+            # print the chamber or something.
+            last BIGLOOP;
+        } else {
+            $seen_hash{$cycle_key} = $#seen_list;
+        }
+    }
 }
 
 # Print the chamber
-#print map { join('', map { tr/01/.#/; $_ } @{$chamber[$_]}) . "\n" } reverse 0..$#chamber;
-
-print $#chamber, "\n";
+#print map { "$_\t" . join('', map { tr/01/　⬛/; $_ } @{$chamber[$_]}) . "\n" } reverse 0..$#chamber;
