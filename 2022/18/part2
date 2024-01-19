@@ -1,0 +1,61 @@
+#!/usr/bin/perl
+
+use 5.10.0;
+use strict;
+use utf8;                               # Source contains UTF-8
+use warnings 'all';
+
+# Read input into a simple list of the coordinates
+our @points = map { chomp; [ map { int } split /,/ ] } <>;
+
+our @max;
+{   # Determine the minimum and maximum of each coordinate
+    my ($min_x, $min_y, $min_z) = (~0) x 3;
+    my ($max_x, $max_y, $max_z) = (-~0) x 3;
+    foreach (@points) {
+        my ($x, $y, $z) = @$_;
+        $min_x = $x if $x < $min_x;
+        $min_y = $y if $y < $min_y;
+        $min_z = $z if $z < $min_z;
+        $max_x = $x if $x > $max_x;
+        $max_y = $y if $y > $max_y;
+        $max_z = $z if $z > $max_z;
+    }
+
+    # Shift coordinates so that the minimum of each is 1. "Δ" is delta.
+    my ($Δ_x, $Δ_y, $Δ_z) = (1 - $min_x, 1 - $min_y, 1 - $min_z);
+    @points = map { [ $$_[0] + $Δ_x, $$_[1] + $Δ_y, $$_[2] + $Δ_z] } @points;
+    # Save the maximums for later use. The "+ 1" is to provide padding.
+    @max = ($max_x + $Δ_x + 1, $max_y + $Δ_y + 1, $max_z + $Δ_z + 1);
+}
+
+# Populate a grid for fast lookups.
+# Note that "2" means solid, "1" means empty. 0/undefined means unknown.
+our @grid;
+foreach (@points) {
+    my ($x, $y, $z) = @$_;
+    $grid[$x][$y][$z] = 2;
+}
+
+# Find the outside of the rock with a breadth-first search.
+# Note that the rock was shifted such that no coordinate has a 0 value. So
+# consider a bounding box from (0, 0, 0) to ($max_x, $max_y, $max_z); the
+# rock is entirely within that box, with 1 voxel of padding on all sides.
+my $area = 0;
+my @queue = [0, 0, 0];
+while (@queue) {
+    my ($x, $y, $z) = @{ shift @queue };
+    # Out of bounds
+    next if $x < 0 or $y < 0 or $z < 0;
+    next if $x > $max[0] or $y > $max[1] or $z > $max[2];
+
+    my $this = $grid[$x][$y][$z] // 0;
+    $area++ if $this == 2;      # Tried to enter solid, thus found a surface
+    next if $this;              # Only proceed if this space is still unknown
+    $grid[$x][$y][$z] = 1;      # Mark empty space
+
+    # Look every which way
+    push @queue, [$x-1, $y, $z], [$x, $y-1, $z], [$x, $y, $z-1];
+    push @queue, [$x+1, $y, $z], [$x, $y+1, $z], [$x, $y, $z+1];
+}
+print "${area}\n";

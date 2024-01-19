@@ -1,0 +1,13 @@
+part1-1
+    This was my first solution, very straight-forward but O(n²). It's very
+    brute-force, and a bit slow. But the data set is small enough that it
+    still doesn't take very long, about 5 seconds on my 10+ year-old computer.
+
+part1-2
+    This was my next solution, almost the same but tries to be less clever in
+    the loop and ends up being about twice as fast.
+
+part1
+    Came up with this while working on Part 2; it runs in 0.02s on my old
+    machine, which is better than a 2 orders-of-magnitude improvement over the
+    first solution!

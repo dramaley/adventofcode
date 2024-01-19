@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This version is slightly more fun, with "foreach map..."
+
+our @cubes = map { chomp; [ map { int } split /,/ ] } <>;
+
+# Total area of all the cubes
+our $area = 6 * @cubes;
+
+# Now identify which sides intersect, and subtract those areas from the total.
+for (my $i = 0; $i < $#cubes; $i++) {
+    for (my $j = $i+1; $j <= $#cubes; $j++) {
+        my $sum = 0;
+        $sum += $_ foreach map { abs($cubes[$i][$_] - $cubes[$j][$_]) } 0..2;
+        $area -=2 if $sum == 1;
+    }
+}
+
+print "${area}\n";

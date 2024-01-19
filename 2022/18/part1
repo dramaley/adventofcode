@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read input into a simple list of the coordinates
+our @points = map { chomp; [ map { int } split /,/ ] } <>;
+
+# From inspection we know that the coordinates are non-negative. So they are
+# safe to use as array indices. Populate a grid for fast lookups.
+our @grid;
+foreach (@points) {
+    my ($x, $y, $z) = @$_;
+    $grid[$x][$y][$z] = 1;
+}
+
+# Total area of all the cubes
+our $area = 6 * @points;
+
+# Now identify which sides intersect, and subtract those areas from the total.
+foreach (@points) {
+    my ($x, $y, $z) = @$_;
+    $area-- if $grid[$x][$y][$z-1];
+    $area-- if $grid[$x][$y][$z+1];
+    $area-- if $grid[$x][$y-1][$z];
+    $area-- if $grid[$x][$y+1][$z];
+    $area-- if $grid[$x-1][$y][$z];
+    $area-- if $grid[$x+1][$y][$z];
+}
+
+print "${area}\n";
