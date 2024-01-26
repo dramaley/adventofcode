@@ -1,0 +1,30 @@
+I struggled with this one for quite awhile, namely in figuring out a solution
+that would run in a reasonable time. I resorted to reading some Reddit threads,
+and found a description of novel optimizations to a breadth-first search to be
+quite helpful.
+
+Specifically, the algorithm described by u/stevie-o-read-it in:
+    https://www.reddit.com/r/adventofcode/comments/zpihwi/comment/j0wp26v/
+
+My original attempt, using breadth-first search with a plain queue, could not
+find a solution on my hardware. I let it run for up to 20 minutes, but the
+queue would grow so large that it was in danger of exhausting my machine's
+96 GB of RAM. I tried adding memoization and that let it get further, but the
+memoization itself used a lot of RAM and it was still unable to solve the
+problem.
+
+Adopting a priority queue over a plain queue helped immensely with memory usage.
+The priority queue would usually only get about 20 items in it, and stay around
+there. So there was no danger of memory exhaustion. But while the priority queue
+solved the memory usage problems and even allowed the code to find the correct
+solution within several seconds, it was still too slow to recognize that it was
+done and i never had the patience to find out exactly how long it would take to
+examine every possibility.
+
+The concept of the "cheat solver" was especially fascinating though. When i
+added that, my code was able to detect that it had finished and would run to
+completion, delivering the correct answer in a fraction of a second!
+
+I tried adding memoization to see if that would speed it up even further, but it
+turned out that the overhead of doing memoization was about the same (or worse!)
+than what it saved. So i removed that.

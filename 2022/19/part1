@@ -1,0 +1,140 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+
+our $minutes = 24;
+
+our @blueprints;
+
+# ----------------------------------------------------------------------------
+#  Calculate a best-case scenario by tweaking some of the rules: let ore
+#  costs be 0, and let the factory produce 1 robot of each type per minute
+#  rather than just 1 robot in total.
+# ----------------------------------------------------------------------------
+sub cheater {
+    my ($blueprint, $entry) = @_;
+    # Note the "undef"s are for the ore-related things; since we don't care
+    # about ore, don't bother keeping track of it.
+    my ($time_left, undef, $clay_bots, $obsidian_bots, $geode_bots,
+        undef, $clay, $obsidian, $geode) = @$entry;
+
+    my $obsidian_bot_clay_cost = $$blueprint{'obsidian'}[1];
+    my $geode_bot_obsidian_cost = $$blueprint{'geode'}[2];
+
+    while ($time_left > 0) {
+        # Test if we have enough resources to build bots
+        my $i_can_has_geode_bot = ($obsidian >= $geode_bot_obsidian_cost);
+        my $i_can_has_obsidian_bot = ($clay >= $obsidian_bot_clay_cost);
+
+        # Update resources
+        $clay += $clay_bots;
+        $obsidian += $obsidian_bots;
+        $geode += $geode_bots;
+
+        # Build a geode bot
+        if ($i_can_has_geode_bot) {
+            $obsidian -= $geode_bot_obsidian_cost;
+            $geode_bots++;
+        }
+        # Build an obsidian bot
+        if ($i_can_has_obsidian_bot) {
+            $clay -= $obsidian_bot_clay_cost;
+            $obsidian_bots++;
+        }
+        # Build a clay bot
+        $clay_bots++;
+
+        $time_left--;
+    }
+    return $geode;
+}
+
+# ----------------------------------------------------------------------------
+#  Calculate a priority for the priority queue
+# ----------------------------------------------------------------------------
+sub priority {
+    # Factors that go into the priority
+    my ($geode_bots, $obsidian_bots, $time_remaining) = @_;
+    my $time_spent = $minutes - $time_remaining;
+    # Prioritize geode bots, then obsidian bots, and finally time spent.
+    # The negation is because Array::Heap::PriorityQueue uses unintuitive order.
+    return -(($geode_bots << 16) + ($obsidian_bots << 8) + $time_spent);
+}
+
+# ----------------------------------------------------------------------------
+#  Solve the puzzle with a breadth-first search
+# ----------------------------------------------------------------------------
+sub bfs_solver {
+    my ($blueprint, $time_remaining) = @_;
+
+    my $pq = Array::Heap::PriorityQueue::Numeric->new();
+    # First argument is the time left. Next four are the bots, then the four
+    # resources. Bots and resources are listed as ore, clay, obsidian, & geode.
+    $pq->add([$time_remaining, 1, 0, 0, 0, 0, 0, 0, 0], 0);
+    my $solution = 0;
+    while (my $entry = $pq->get()) {
+        my ($time_left, $ore_bots, $clay_bots, $obsidian_bots, $geode_bots,
+            $ore, $clay, $obsidian, $geode) = @$entry;
+
+        # Save this solution if it is better than the previous record
+        $solution = $geode if $geode > $solution;
+
+        # Time's up!
+        next if $time_left == 0;
+
+        # Give up if it is impossible for the current state to do better than
+        # the best-known solution.
+        next if &cheater($blueprint, $entry) <= $solution;
+
+        # Loop over the resources and try to build bots, in descending order.
+        # Note that '' means don't build a bot this round.
+        foreach my $this_bot ('geode', 'obsidian', 'clay', 'ore', '') {
+            my ($ore_cost, $clay_cost, $obsidian_cost) =
+                ($this_bot ? @{ $$blueprint{$this_bot} } : (0, 0, 0));
+            # Insufficient resources to build this bot
+            next if ($ore_cost > $ore or
+                     $clay_cost > $clay or
+                     $obsidian_cost > $obsidian);
+            # Start building an array for the next iteration
+            my @next = ($time_left - 1,
+                        $ore_bots, $clay_bots, $obsidian_bots, $geode_bots);
+            # Update resources; subtract the cost to build $this_bot, then add
+            # however much the existing bots can make.
+            push @next, ($ore      - $ore_cost      + $ore_bots,
+                         $clay     - $clay_cost     + $clay_bots,
+                         $obsidian - $obsidian_cost + $obsidian_bots,
+                         $geode                     + $geode_bots);
+            # Now build $this_bot by incrementing the counter
+            my %bot_index = ('ore'=>1, 'clay'=>2, 'obsidian'=>3, 'geode'=>4);
+            $next[ $bot_index{$this_bot} ]++ if $this_bot;
+
+            # Queue it up
+            $pq->add(\@next, &priority($next[4], $next[3], $next[0]));
+
+            # If we built a geode bot, don't bother with anything else.
+            last if $this_bot eq 'geode';
+        }
+    }
+    return $solution;
+}
+
+{   # Parse the input
+    undef $/;   # Slurp
+    my $input = <>;
+    # This match is ugly. But it works for both the sample and real input so...
+    # Note that since blueprints in the input are in ascending consecutive
+    # numerical order, the blueprint number may be ignored here.
+    while ($input =~ m/^Blueprint \d+:\s+Each ore robot costs (\d+) ore.\s+Each clay robot costs (\d+) ore.\s+Each obsidian robot costs (\d+) ore and (\d+) clay.\s+Each geode robot costs (\d+) ore and (\d+) obsidian.$/mg) {
+        push @blueprints, { 'ore'      => [ $1, 0,  0 ], # Save the 3 resources
+                            'clay'     => [ $2, 0,  0 ], # (ore, clay, obsidian)
+                            'obsidian' => [ $3, $4, 0 ], # in that order.
+                            'geode'    => [ $5, 0, $6 ] };
+    }
+}
+
+my $ql_total = 0;   # "Quality level"
+$ql_total += $_ foreach map { ($_ + 1) * &bfs_solver($blueprints[$_], $minutes) } 0..$#blueprints;
+print "${ql_total}\n";
