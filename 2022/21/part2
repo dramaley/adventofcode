@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my %monkeys = map { chomp; split /: / } <>;
+
+delete $monkeys{'humn'};        # Humans are lame
+$monkeys{'root'} =~ s/ . / = /;
+
+# Figure out which monkeys have to do math
+my (@matheys) = grep { $monkeys{$_} =~ /[a-z]/ } keys %monkeys;
+
+# Now use @matheys as a queue
+my $counter = 1;
+while (my $monkey = shift @matheys) {
+    # Every time "root" comes around, check if any useful work was accomplished.
+    if ($monkey eq 'root') {
+        last if not $counter;   # Work stopped, bail out
+        $counter = 0;           # Reset the counter for the next pass
+    }
+    # Replace a label with a number, when possible
+    $monkeys{$monkey} =~ s/$_/${monkeys{$_}}/
+        foreach (grep { $monkeys{$_} =~ m/^\d+$/ }
+                 grep { exists $monkeys{$_} } # Avoid errors from deleting humn
+                 $monkeys{$monkey} =~ m/([a-z]+)/g);
+    if ($monkeys{$monkey} !~ m/[a-z]/) {
+        # No labels found, so do the math
+        $monkeys{$monkey} = eval $monkeys{$monkey};
+        $counter++;
+    } else {
+        # Better luck next time
+        push @matheys, $monkey;
+    }
+}
+
+# At this point as many equations have been solved as can be solved without
+# the "humn" input. So now work backwords from "root" to solve.
+
+my $label = 'root';
+my $number = 0;
+# Trace backwards until we find the human
+while ($label ne 'humn') {
+    (my $new_label = $monkeys{$label}) =~ s/^.*?([a-z]+).*$/$1/;
+    (my $new_number = $monkeys{$label}) =~ s/^.*?(\d+).*$/$1/;
+    (my $op = $monkeys{$label}) =~ s/^\S+ (.) \S+$/$1/;
+
+    for ($op) {
+        # Addition and multiplication are commutative, making them easy
+        /\+/ && do { $number -= $new_number; last; };
+        /\*/ && do { $number /= $new_number; last; };
+        # Have to pay more attention to order of the arguments here
+        my $num_last = $monkeys{$label} =~ m/^\S+ (.) \d+$/;
+        /\-/ && do { $number = $new_number + ($num_last ? 1 : -1) * $number;
+                     last; };
+        /\// && do { $number = $new_number * ($num_last ? $number : 1/$number);
+                     last; };
+        # Handle the "root" case, easiest of all
+        /=/  && do { $number = $new_number; last; };
+    }
+    $label = $new_label;
+}
+
+print "${number}\n";

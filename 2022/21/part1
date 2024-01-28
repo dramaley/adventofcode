@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my %monkeys = map { chomp; split /: / } <>;
+
+# Figure out which monkeys have to do math
+my (@matheys) = grep { $monkeys{$_} =~ /^\w+ . \w+$/ } keys %monkeys;
+
+# Now use @matheys as a queue
+while (my $monkey = shift @matheys) {
+    # Replace a label with a number, when possible
+    $monkeys{$monkey} =~ s/$_/${monkeys{$_}}/
+        foreach (grep { $monkeys{$_} =~ m/^\d+$/ }
+                 $monkeys{$monkey} =~ m/([a-z]+)/g);
+    if ($monkeys{$monkey} !~ m/[a-z]/) {
+        # No labels found, so do the math
+        $monkeys{$monkey} = eval $monkeys{$monkey};
+    } else {
+        # Better luck next time
+        push @matheys, $monkey;
+    }
+}
+
+print $monkeys{'root'}, "\n";
