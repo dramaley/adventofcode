@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# When i read the problem description, i thought it meant to record the
+# movements that were made when processing the mixing, and then repeat
+# those movements 10 times on the data set.
+#
+# Works great for 1 iteration, but then is wildly wrong after that. Because
+# i misunderstood the problem, and didn't understand what it was supposed
+# to be until i read in the forums. So... this code here solves a different
+# problem from what was intended.
+
+
+our @data = map { chomp; int; } <>;
+
+# Apply the "decryption key"
+$data[$_] *= 811589153 foreach 0..$#data;
+
+# Do the mixer algorithm described in the problem, but just save our movements
+# rather than modifying @data
+our @movements;
+{   my @mixer = map { [$_, 0] } @data;  # Add flag to tell if item has moved
+    for (my $i = 0; $i < @mixer; $i++) {
+        next if $mixer[$i][1];                  # Already processed this one
+        my ($item) = @{splice(@mixer, $i, 1)};  # Remove the item
+        my $new_i = ($i + $item) % @mixer;      # Figure out where to stick it
+        push @movements, [ $i, $new_i ];        # Save movements
+        splice @mixer, $new_i, 0, [ $item, 1 ]; # Insert item
+        redo if $new_i > $i;    # Replacement needs processing; avoid increment
+    }
+}
+
+# Apply the movements to @data however many times we need
+foreach ((@movements) x 10) {
+    my ($i, $new_i) = @$_;
+    my $item = splice @data, $i, 1;
+    splice @data, $new_i, 0, $item;
+}
+
+my $zero_index = (grep { !$data[$_] } 0..$#data)[0];
+my $sum = 0;
+$sum += $data[($zero_index + $_) % @data] foreach 1000, 2000, 3000;
+print "${sum}\n";

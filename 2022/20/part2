@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Obviously this could be done more compactly (and probably perform better),
+# but i like how legible this is.
+our @data = map { chomp; int; } <>;               # Read input
+$data[$_] *= 811589153 foreach 0..$#data;         # Apply the "decryption key"
+$data[$_] = [ $data[$_], $_ ] foreach 0..$#data;  # Add index of original order
+
+foreach (1..10) {
+    # Do the mixer algorithm described in the problem
+    for (my $i = 0; $i < @data; $i++) {
+        # Find the index we need to work on. Note that this grep makes the
+        # overall algorithm O(n²). Ouch. But the input data set is small enough
+        # to just accept how poor this method is. There's probably a way to do
+        # this with fancier data structures that is O(n).
+        my ($index) = grep { $data[$_][1] == $i } 0..$#data;
+        my $aref = splice(@data, $index, 1);            # Remove the item
+        my $new_index = ($index + $$aref[0]) % @data;   # Where to stick it
+        splice @data, $new_index, 0, $aref;             # Insert item
+    }
+}
+
+my ($zero_index) = grep { !$data[$_][0] } 0..$#data;
+my $sum = 0;
+$sum += $data[($zero_index + $_) % @data][0] foreach 1000, 2000, 3000;
+print "${sum}\n";

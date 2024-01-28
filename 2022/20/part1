@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @data = map { chomp; int; } <>;
+
+# Do the mixer algorithm described in the problem
+{
+    my @mixer = map { [$_, 0] } @data;  # Add flag to tell if item has moved
+    for (my $i = 0; $i < @mixer; $i++) {
+        next if $mixer[$i][1];                  # Already processed this one
+        my ($item) = @{splice(@mixer, $i, 1)};  # Remove the item
+        my $new_i = ($i + $item) % @mixer;      # Figure out where to stick it
+        splice @mixer, $new_i, 0, [ $item, 1 ]; # Insert item
+        redo if $new_i > $i;    # Replacement needs processing; avoid increment
+    }
+    # Save our work
+    @data = map { $$_[0] } @mixer;
+}
+
+my $zero_index = (grep { !$data[$_] } 0..$#data)[0];
+my $sum = 0;
+$sum += $data[($zero_index + $_) % @data] foreach 1000, 2000, 3000;
+print "${sum}\n";
