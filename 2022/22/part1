@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use utf8;                               # Source contains UTF-8
+use warnings 'all';
+
+# Find the maximum of a list of numbers
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+
+# Read the map/grid
+our @grid;
+while (<>) {
+    last if /^$/;
+    chomp;
+    # Spaces in the input are translated to empty strings.
+    # And add extras to the beginning and end as padding.
+    push @grid, [ '', (map { tr/ //d; $_ } split //), '' ];
+}
+
+# Read and tokenize the instructions
+our @instructions = map { chomp; m/(\d+|L|R)/g } <>;
+
+# Add padding so the grid is rectangular and has an edge
+our $cols = max(map { scalar (@$_) } @grid);
+push @$_, ('') x ($cols - @$_) foreach @grid;
+unshift @grid, [ ('') x $cols ];        # Add top edge
+push @grid, [ ('') x $cols ];           # Add bottom edge
+our $rows = @grid;
+
+# Find start position
+my $row = 1;
+my $col = (grep { $grid[$row][$_] } 0..$#{$grid[$row]})[0];
+# Direction: 0 for right (>), 1 for down (v), 2 for left (<), 3 for up (^)
+my $dir = 0;
+my @dirs = ([0, 1], [1, 0], [0, -1], [-1, 0]);
+
+while (my $instr = shift @instructions) {
+    if ($instr eq 'L') { $dir--; $dir %= 4; next; }
+    if ($instr eq 'R') { $dir++; $dir %= 4; next; }
+    # Instruction is a number representing distance to move
+    my ($rowΔ, $colΔ) = @{ $dirs[$dir] };     # "Δ" is delta
+    while ($instr) {
+        my $new_row = ($row + $rowΔ) % $rows;
+        my $new_col = ($col + $colΔ) % $cols;
+        my $next = $grid[$new_row][$new_col];
+        if ($next eq '') {              # Out of bounds
+            if ($rowΔ) {
+                $new_row = ($new_row + $rowΔ) % $rows
+                    while not $grid[$new_row][$new_col];
+            } elsif ($colΔ) {
+                $new_col = ($new_col + $colΔ) % $cols
+                    while not $grid[$new_row][$new_col];
+            } else { die }
+            $next = $grid[$new_row][$new_col];
+        }
+        last if $next eq '#';           # Wall ahead, cannot proceed
+        if ($next eq '.') {             # Proceed as expected
+            $row = $new_row;
+            $col = $new_col;
+            $instr--;
+        } else {                        # This should never happen
+            die "Invalid grid data '${next}'"
+        }
+    }
+}
+
+my $answer = 1000 * $row + 4 * $col + $dir;
+print "${answer}\n";

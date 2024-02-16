@@ -1,0 +1,428 @@
+#!/usr/bin/perl
+
+use 5.14.0;
+use strict;
+use utf8;                               # Source contains UTF-8
+use warnings 'all';
+use experimental 'smartmatch';
+
+# There are 11 distinct unfoldings or "nets" of a cube:
+#
+#　⬛⬛⬛　⬛　⬛⬛　　⬛　　⬛⬛　⬛　　⬛　　⬛　　　⬛　　　　⬛
+#　　⬛　　⬛　　⬛⬛　⬛⬛　⬛　　⬛⬛　⬛　　⬛⬛　　⬛⬛　⬛⬛⬛　　⬛⬛
+#　　⬛　⬛⬛⬛　⬛　　⬛　　⬛　⬛⬛　　⬛⬛　　⬛⬛　　⬛　　⬛　　⬛⬛
+#　　⬛　　⬛　　⬛　⬛⬛　⬛⬛　　⬛　　　⬛　　⬛　　　⬛⬛　⬛　⬛⬛
+#　　　　　　　　　　　　　　　　　　　　　⬛
+# Note that throughout this code i'll put the geometrical use of "net" in quotes
+# just because it has so many other definitions. Also, "CW" and "CCW" appear
+# with some frequency; those are just abbreviations for "clockwise" and
+# "counterclockwise", respectively. A lot of this code involves traversing
+# around the edges of the "net", and that direction (CW or CCW) is significant.
+#
+#
+# The basic idea of the algorithm for rolling up the cube is to identify convex
+# corners on the "net". Then from each convex corner, traverse outwards
+# simultaneously in both the CW and CCW directions, and define a mapping that
+# describes how to warp from one edge to the other when traversing the cube.
+# Note that after traversing outward for one edge-length, it is possible to keep
+# going if both edges being traversed do not encounter corners at the same time.
+# If they _do_ encounter corners simultaneously, then we have to stop and start
+# over from the next concave corner.
+#
+# For a few pathological "nets" there will be some edges left over that did not
+# have warps defined. For those, we can pick some point on the edge of the
+# "net"--it can be any point, though we'll use the start position of the puzzle.
+# (Reasons being so we can reuse code for locating that point, and because we
+# know some useful things about that point such as it is a convex corner with
+# edges pointing to the right and down.) From our starting point, traverse
+# around the edge of the "net" in both CW and CCW directions until an edge
+# without defined warp information is encountered. Once those edges are found,
+# we can just traverse them and define warps and it will work out.
+#
+# If you require convincing that this really works, the easiest way is to build
+# some physical models of the "nets" out of paper and actually fold them up and
+# observe how the edges align. After playing with physical models for a bit it
+# becomes clear how the geometry works out.
+#
+# Once our warp engine has been fully constructed, traversing the cube to solve
+# the actual puzzle is quite trivial in comparison.
+#
+# This puzzle was the most challenging one i've encountered. To understand what
+# was going on and how to approach it, the following references were invaluable.
+#   Some general thoughts on how to approach it:
+#   https://www.reddit.com/r/adventofcode/comments/zsqn97/comment/j1ane8g/
+#
+#   The algorithm discussion here was helpful, though the actual code wasn't as
+#   useful since i'm not very fluent in Python and lacked the patience to study
+#   it closely enough to really grok it:
+#   https://www.reddit.com/r/adventofcode/comments/zswyj2/2022_day_22_part_2pyth
+#   on_generic_solution/
+#
+#   I owe a debt of gratitude to u/clbrri. The video does a great job of showing
+#   how the algorithm works:
+#   https://www.reddit.com/r/adventofcode/comments/zsrlzf/2022_day_22_part_2_vid
+#   eo_analysis_for_solving/
+#   https://www.youtube.com/watch?v=qWgLdNFYDDo
+
+
+our (@grid, @instructions, %warp);      # Globals, gross.
+our ($cols, $rows, $edge);
+
+# Directions: 0 for right (>), 1 for down (v), 2 for left (<), 3 for up (^)
+our ($rt, $dn, $lt, $up) = (0, 1, 2, 3);
+# Mapping from direction to (row, col) offsets that describe the movement
+our @dirs = ([0, 1], [1, 0], [0, -1], [-1, 0]);
+
+
+# ------------------------------------------------------------------------------
+#  Find the maximum/minimum of a list of numbers
+# ------------------------------------------------------------------------------
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+sub min { return (sort { $a <=> $b } @_)[0]; }
+
+# ------------------------------------------------------------------------------
+#  Find the starting position. With the way the @grid was constructed, start
+#  is guaranteed to be in row 1.
+# ------------------------------------------------------------------------------
+sub get_start {
+    my $row = 1;
+    my $col = (grep { $grid[$row][$_] } 0..$#{$grid[$row]})[0];
+    return $row, $col;
+}
+
+# ------------------------------------------------------------------------------
+#  Given a ($ow, $col) position in the grid, look 1 pixel in the $dir direction
+#  and return whether there is anything there.
+# ------------------------------------------------------------------------------
+sub grid_lookaround {
+    my ($row, $col, $dir) = @_;
+    # Move a position in $dir direction, if necessary
+    ($row, $col) = &moveit($row, $col, $dir)
+        if defined $dir;
+    # Double negation gives truthiness sans warnings
+    return int !!$grid[$row][$col];
+}
+
+# ------------------------------------------------------------------------------
+#  Given (row, col, dir), move one unit and return the updated (row, col).
+# ------------------------------------------------------------------------------
+sub moveit {
+    my ($row, $col, $dir) = @_;
+    my ($rowΔ, $colΔ) = @{ $dirs[$dir] }; # "Δ" is delta
+    $row += $rowΔ;
+    $col += $colΔ;
+    return $row, $col;
+}
+
+# ------------------------------------------------------------------------------
+#  Pretty print the grid with indices
+# ------------------------------------------------------------------------------
+sub prettyprint {
+    my $width = length(scalar @grid);   # Width of the left column
+    my $header = ' ' x $width . join('', map { $_ % 10 } 0..$#{$grid[0]}) . "\n";
+    print $header;
+    printf "%${width}d%s%d\n", $_, join('', map { $_ || ' ' } @{$grid[$_]}), $_
+        foreach 0..$#grid;
+    print $header;
+}
+
+# ------------------------------------------------------------------------------
+#  Go explore the concaves (concave corners).
+# ------------------------------------------------------------------------------
+sub spelunker {
+    # Determine the layout of the "net" by generating a small matrix containing
+    # 1 for a cube face or 0 for empty
+    my @layout;
+    for (my $row = 1; $row < $#grid; $row += $edge) {
+        for (my $col = 1; $col < $#{$grid[$row]}; $col += $edge) {
+            # Double negation gives truthiness sans warnings
+            $layout[($row-1)/$edge][($col-1)/$edge] = int !!$grid[$row][$col];
+        }
+    }
+#    print "Layout:\n", map { join('', "\t", @$_, "\n") } @layout;
+
+    # Now look for concave corners. Using @layout instead of @grid means there
+    # is very little data to scan so this will be fast. Downside is the
+    # calculation for the (row, col) that we save is a bit messy since we have
+    # to reconstitute the coordinate in @grid correctly.
+    my @concaves;
+    for (my $row = 0; $row < $#layout; $row++) {
+        for (my $col = 0; $col < $#{$layout[$row]}; $col++) {
+            # Check a region of 4 pixels looking for a concave corner
+            my $sum = ($layout[$row][$col] + $layout[$row][$col+1] +
+                       $layout[$row+1][$col] + $layout[$row+1][$col+1]);
+            next if $sum != 3;  # No corner found
+            # Now we can distinguish which direction the corner faces based on
+            # which pixel is empty.
+            my $g_row = ($row+1)*$edge; # Row and column in the original @grid
+            my $g_col = ($col+1)*$edge;
+            my ($cw, $ccw);             # Direction of the CW & CCW vectors
+            if (!$layout[$row][$col]) {         # Opens up and to the left
+                $cw = $up; $ccw = $lt;
+            } elsif (!$layout[$row][$col+1]) {  # Opens up and to the right
+                $g_col++; $cw = $rt; $ccw = $up;
+            } elsif (!$layout[$row+1][$col]) {  # Opens down and to the left
+                $g_row++; $cw = $lt; $ccw = $dn;
+            } elsif (!$layout[$row+1][$col+1]) {# Opens down and to the right
+                $g_row++; $g_col++; $cw = $dn; $ccw = $rt;
+            } else { die 'Unsound logic'; }     # Ummm...
+            # For each vector (clockwise & counterclockwise) store the start
+            # position and direction it points. The redundancy of position is
+            # because this array is consumed by a function that can process
+            # vectors that don't necessarily originate from the same point.
+            push @concaves, [ $g_row, $g_col, $cw, $g_row, $g_col, $ccw ];
+        }
+    }
+    return @concaves;
+}
+
+# ------------------------------------------------------------------------------
+#  Given a list of concaves (as generated by &spelunker), traverse the sides of
+#  the cube and populate %warp with the mappings of how to warp from exposed
+#  edges of the cube to the appropriate position on a different edge. The way
+#  to think of this is that we zip up or stitch together the sides of the cube
+#  starting from the convex corners, going as far as we can from each corner.
+# ------------------------------------------------------------------------------
+sub warp_engine {
+    # Calculate where to warp to when going off the edge of the cube.
+    # Keys of the %warp hash are "row-col-dir" that go off the edge, values are
+    # [row,col,dir] of where to re-enter the cube.
+  CONCAVE:
+    while (my $concave = shift @_) {
+        my ($cw_row, $cw_col, $cw_dir, $ccw_row, $ccw_col, $ccw_dir) = @$concave;
+
+        # Directions of movement when considering the edge delineated by the CW
+        # or CCW vectors, whether one is entering or leaving the cube surface
+        my $cw_enter  = ($cw_dir  + 1) % 4;
+        my $cw_leave  = ($cw_dir  - 1) % 4;
+        my $ccw_enter = ($ccw_dir - 1) % 4;
+        my $ccw_leave = ($ccw_dir + 1) % 4;
+
+        for (my $i = 0; $i < $edge; $i++) {
+            # Calculate new positions along the CW, CCW vectors
+            my $new_cw_row  = $cw_row  + $i * $dirs[$cw_dir][0];
+            my $new_cw_col  = $cw_col  + $i * $dirs[$cw_dir][1];
+            my $new_ccw_row = $ccw_row + $i * $dirs[$ccw_dir][0];
+            my $new_ccw_col = $ccw_col + $i * $dirs[$ccw_dir][1];
+            # Define the warps
+            my $priors = 0;             # Track whether we've been here before
+            $priors += &warp_helper($new_cw_row,  $new_cw_col,  $cw_leave,
+                                    $new_ccw_row, $new_ccw_col, $ccw_enter);
+            $priors += &warp_helper($new_ccw_row, $new_ccw_col, $ccw_leave,
+                                    $new_cw_row,  $new_cw_col,  $cw_enter);
+            next CONCAVE if $priors==2; # Been here before; no need to proceed
+        }
+
+        # Move the vectors to the next cube edges, turning if necessary
+        my ($turn1, $turn2);
+        ($turn1, $cw_row, $cw_col, $cw_dir) =
+            &warp_vector(1, $cw_row, $cw_col, $cw_dir, $cw_enter);
+        ($turn2, $ccw_row, $ccw_col, $ccw_dir) =
+            &warp_vector(-1, $ccw_row, $ccw_col, $ccw_dir, $ccw_enter);
+        my $turns = $turn1 + $turn2;
+        next if $turns == 2;    # Can't continue zipping if both vectors turn
+
+        # Queue the next side for processing
+        push @_, [ $cw_row, $cw_col, $cw_dir, $ccw_row, $ccw_col, $ccw_dir ];
+    }
+}
+
+# ------------------------------------------------------------------------------
+#  Add an entry to the %warp hash
+# ------------------------------------------------------------------------------
+sub warp_helper {
+    my ($src_row, $src_col, $src_dir, $dst_row, $dst_col, $dst_dir) = @_;
+    my $key = &warp_key($src_row, $src_col, $src_dir);
+    return 1 if exists $warp{$key};     # No need to redefine
+    # The destination given is in the CW or CCW vector, adjacent to but not in
+    # the cube. So move it over by a pixel so that it is actually in the cube.
+    ($dst_row, $dst_col) = &moveit($dst_row, $dst_col, $dst_dir);
+    # Add the warp mapping
+    $warp{$key} = [ $dst_row, $dst_col, $dst_dir ];
+    return 0;
+}
+
+# ------------------------------------------------------------------------------
+#  Given (row, col, dir), return the key to the %warp hash. Defined as a
+#  function just to make it easy to change if needed.
+# ------------------------------------------------------------------------------
+sub warp_key {
+    my ($row, $col, $dir) = @_;
+    # Since we're here, might as well do some sanity checks...
+    die "Row '${row}' out of range" unless $row >= 0 and $row < $rows;
+    die "Col '${col}' out of range" unless $col >= 0 and $col < $cols;
+    die "Bad direction '${dir}'" unless $dir ~~ [0..3];
+    # Do the needful
+    return join('-', $row, $col, $dir);
+}
+
+# ------------------------------------------------------------------------------
+#  Figure out position and direction of the next vector. Returns whether the
+#  vector had to turn to wrap around a corner, and the vector's (row,col,dir).
+# ------------------------------------------------------------------------------
+sub warp_vector {
+    # $rotation is whether we're on the CW (1) or CCW (-1) vector
+    # $row/$col/$dir are the vector properties
+    # $enter is the perpendicular direction to enter the cube face
+    my ($rotation, $row, $col, $dir, $enter) = @_;
+
+    # Move vector to the end of the side just traversed
+    $row += $edge * $dirs[$dir][0];
+    $col += $edge * $dirs[$dir][1];
+
+    my $turn = 0;               # Whether a turn happened
+    # Get the point $enter direction from here, as well as the point we're at
+    my ($α, $β) = (&grid_lookaround($row, $col, $enter),
+                   &grid_lookaround($row, $col));
+    if ($α and $β) {            # Both points solid; we crashed into the wall
+
+        # Note that this branch is unreachable during the first pass at building
+        # the warp engine because we always start traversing from convex corners
+        # and thus never run into one. This branch is reachable, however, for
+        # the pathological unwindings of the cube that require a second pass at
+        # building the engine.
+
+        $row -= $dirs[$dir][0]; # Back up one position
+        $col -= $dirs[$dir][1];
+        $dir -= $rotation;      # Rotate away from the wall
+        $dir %= 4;
+        $turn++;                # Notate the turn
+    } elsif (not ($α or $β)) {  # Both points empty; we overran the edge
+        # Move one position in the $enter direction
+        ($row, $col) = &moveit($row, $col, $enter);
+        $dir += $rotation;      # Rotate toward $enter
+        $dir %= 4;
+        $turn++;                # Notate the turn
+    } elsif ($α and not $β) {
+        # Go straight, keep calm and carry on, nothing to see here move along
+    } else {
+        die 'Warped right out of Euclidean space, sorry about that';
+    }
+
+    return $turn, $row, $col, $dir;
+}
+
+
+# ---------------
+#   Parse Input
+# ---------------
+
+# Read the map/grid
+while (<>) {
+    last if /^$/;
+    chomp;
+    # Spaces in the input are translated to empty strings.
+    # Add extras to the beginning and end to simplify edge detection later.
+    push @grid, [ '', (map { tr/ //d; $_ } split //), '' ];
+}
+
+# Read and tokenize the instructions
+@instructions = map { chomp; m/(\d+|L|R)/g } <>;
+
+# -----------------------
+#   Easy Initialization
+# -----------------------
+
+# This section fills out empty spaces in the grid and discovers some basic
+# things about the input, initializing $cols, $rows, and $edge.
+
+# Extend rows as needed so the grid is a single rectangle
+$cols = max(map { scalar (@$_) } @grid);
+push @$_, ('') x ($cols - @$_) foreach @grid;
+
+{   # Surface area of the cube is just how many spaces in the grid are filled
+    my $area = length join '', map { join '', @$_ } @grid;
+    # For a cube, A=6x², where "A" is the area and "x" is the side length.
+    # Therefore, x=√(A/6). To account for potential rounding errors, we add 1
+    # before taking the square root--this ensures that sqrt() returns a value
+    # slightly larger than the answer, which int() will round down correctly.
+    $edge = int sqrt($area / 6 + 1);
+}
+
+# Padding to the left and right were added on read, now add top and bottom.
+unshift @grid, [ ('') x $cols ];
+push @grid, [ ('') x $cols ];
+$rows = @grid;
+
+#&prettyprint;                           # Uncomment to show off
+
+# ----------------------------------------
+#   Guild Navigator Stuff: Folding Space
+# ----------------------------------------
+
+# Now the harder task: figuring out how to fold the "net" into a cube and thus
+# how to traverse an edge between sides. Hard enough to actually use functions
+# for organization.
+
+{   # Identify the concave corners and save information on the clockwise and
+    # counterclockwise vectors that originate in each corner.
+    my (@concaves) = &spelunker;
+
+    # Build our warp engine
+    &warp_engine(@concaves);
+    while (scalar %warp < $edge * 14) { # Warp engine isn't big enough
+        # There are a few pathological unrollings of the cube for which
+        # traversing outward from the concave corners will not reach every side.
+        # Handle that situation by finding those segments and linking them.
+
+        # Find a point on the edge of the cube. This one is a convex corner.
+        my ($row, $col) = &get_start;
+
+        # Traverse clockwise until the edge without warp definitions is found
+        my ($cw_row, $cw_col, $cw_dir) = ($row, $col, $rt);
+        $cw_row--;
+        (undef, $cw_row, $cw_col, $cw_dir) =
+            &warp_vector(1, $cw_row, $cw_col, $cw_dir, ($cw_dir+1)%4)
+            until not exists $warp{ &warp_key($cw_row, $cw_col, ($cw_dir-1)%4) };
+
+        # Now repeat that counterclockwise
+        my ($ccw_row, $ccw_col, $ccw_dir) = ($row, $col, $dn);
+        $ccw_col--;
+        (undef, $ccw_row, $ccw_col, $ccw_dir) =
+            &warp_vector(-1, $ccw_row, $ccw_col, $ccw_dir, ($ccw_dir-1)%4)
+            until not exists $warp{ &warp_key($ccw_row, $ccw_col, ($ccw_dir+1)%4) };
+
+        # Build the rest of the warp engine
+        &warp_engine([$cw_row, $cw_col, $cw_dir, $ccw_row, $ccw_col, $ccw_dir]);
+    }
+}
+
+# ------------------------------------------
+#   Traverse the cube and solve the puzzle
+# ------------------------------------------
+
+# Initialize start position
+my ($row, $col) = &get_start;
+my $dir = $rt;
+
+while (my $instr = shift @instructions) {
+    if ($instr eq 'L') { $dir--; $dir %= 4; next; }
+    if ($instr eq 'R') { $dir++; $dir %= 4; next; }
+    # Instruction is a number representing distance to move
+    my ($rowΔ, $colΔ) = @{ $dirs[$dir] };     # "Δ" is delta
+    while ($instr) {
+        my $new_row = ($row + $rowΔ) % $rows;
+        my $new_col = ($col + $colΔ) % $cols;
+        my $new_dir = $dir;
+        my $next = $grid[$new_row][$new_col];
+        if ($next eq '') {              # Out of bounds
+            my $key = &warp_key($new_row, $new_col, $new_dir);
+            die "Warp engine inoperable for '${key}'" if not exists $warp{$key};
+            # Engage the warp engine
+            ($new_row, $new_col, $new_dir) = @{ $warp{$key} };
+            # Update stuff that changed
+            ($rowΔ, $colΔ) = @{ $dirs[$new_dir] };
+            $next = $grid[$new_row][$new_col];
+        }
+        last if $next eq '#';           # Wall ahead, cannot proceed
+        if ($next eq '.') {             # Proceed as expected
+            ($row, $col, $dir) = ($new_row, $new_col, $new_dir);
+            $instr--;
+        } else {                        # This should never happen
+            die "Invalid grid data '${next}'"
+        }
+    }
+}
+
+my $answer = 1000 * $row + 4 * $col + $dir;
+print "${answer}\n";
