@@ -4,3 +4,39 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# ------------------------------------------------------------------------------
+#  Convert a normal integer to its equivalent SNAFU number
+# ------------------------------------------------------------------------------
+sub int2snafu {
+    my ($int) = @_;
+
+    my @snafu;
+    until ($int == 0) {
+        unshift @snafu, ('=', '-', '0', '1', '2')[($int + 2) % 5];
+        $int = int(($int + 2) / 5);
+    }
+    return join('', @snafu);
+}
+
+# ------------------------------------------------------------------------------
+#  Convert a SNAFU number to a normal integer
+# ------------------------------------------------------------------------------
+sub snafu2int {
+    my ($snafu) = @_;
+    my %mapping = ('=' => -2, '-' => -1, '0' => 0, '1' => 1, '2' => 2);
+
+    my @sdigits = reverse split //, $snafu;
+    my $int = 0;
+    for (my $i = 0; $i < @sdigits; $i++) {
+        $int += 5**$i * $mapping{$sdigits[$i]};
+    }
+    return $int;
+}
+
+my $sum = 0;
+while (<>) {
+    chomp;
+    $sum += &snafu2int($_);
+}
+
+print &int2snafu($sum),"\n";
