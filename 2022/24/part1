@@ -1,0 +1,108 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Math::Utils qw/lcm/;
+
+our (@start, @end, @frames);
+{   # Read the input
+    my @input = map { chomp; $_ } <>;
+
+    # Get the start position
+    my $start_line = 0;
+    my $first = $input[$start_line];
+    $first =~ m/\./g;
+    @start = ($start_line, pos($first) - 1);
+
+    # Get the end position
+    my $end_line = $#input;
+    my $last = $input[$end_line];
+    $last =~ m/\./g;
+    @end = ($end_line, pos($last) - 1);
+
+    # Initialize 4 masks sized after the input, 1 for each direction
+    my $rows = @input - 2;              # Subtract 2 for the borders
+    my $cols = length($input[0]) - 2;   # Ditto
+    my @dirs = ('^', 'v', '<', '>');
+    my @masks = map { [ map { [ ('') x $cols ] } 1..$rows ] } @dirs;
+
+    # Populate the masks
+    foreach my $i (0..$#dirs) {
+        my $regex = quotemeta ${dirs[$i]};
+        for (my $row = 0; $row < @{$masks[$i]}; $row++) {
+            # Trim the borders
+            my $string = substr($input[$row+1], 1, length($input[$row+1]) - 2);
+            while ($string =~ m/${regex}/g) {
+                my $col = pos($string) - 1;
+                $masks[$i][$row][$col] = $dirs[$i];
+            }
+        }
+    }
+
+    my $num_frames = lcm($rows, $cols);
+    for (my $t = 0; $t < $num_frames; $t++) {
+        # Initialize the frame with its border
+        my @frame = ([ ('#') x ($cols + 2) ],                       # First row
+                     (map { [ '#', ('') x $cols, '#' ] } 1..$rows), # Intermediate rows
+                     [ ('#') x ($cols + 2) ]);                      # Last row
+        # Knock out the start & end points
+        $frame[$start[0]][$start[1]] = '';
+        $frame[$end[0]][$end[1]] = '';
+
+        for (my $row = 0; $row < $rows; $row++) {
+            for (my $col = 0; $col < $cols; $col++) {
+                my @blizzards;
+                {   # Check for blizzard blowing north
+                    my $mask_row = ($row + $t) % $rows;
+                    push @blizzards, $masks[0][$mask_row][$col]
+                        if $masks[0][$mask_row][$col];
+                }
+                {   # Check blizzard blowing south
+                    my $mask_row = ($row - $t) % $rows;
+                    push @blizzards, $masks[1][$mask_row][$col]
+                        if $masks[1][$mask_row][$col];
+                }
+                {   # Check blizzard blowing west
+                    my $mask_col = ($col + $t) % $cols;
+                    push @blizzards, $masks[2][$row][$mask_col]
+                        if $masks[2][$row][$mask_col];
+                }
+                {   # Check blizzard blowing east
+                    my $mask_col = ($col - $t) % $cols;
+                    push @blizzards, $masks[3][$row][$mask_col]
+                        if $masks[3][$row][$mask_col];
+                }
+                if (@blizzards) {
+                    $frame[$row+1][$col+1] = @blizzards > 1 ? @blizzards : $blizzards[0];
+                }
+            }
+        }
+        $frames[$t] = \@frame;
+    }
+}
+
+my @queue = ([@start, 0]);
+my ($rows, $cols) = ($#{$frames[0]}, $#{$frames[0][0]});
+my %seen;
+while (my $coords = shift @queue) {
+    my ($in_row, $in_col, $in_t) = @$coords;
+
+    if ($in_row == $end[0] and $in_col == $end[1]) {
+        print "${in_t}\n";
+        last;
+    }
+
+    my $key = join('-', $in_row, $in_col, $in_t % @frames);
+    next if $seen{$key}++;
+
+    my @next_rows = grep { $_ >= 0 and $_ <= $rows } ($in_row-1..$in_row+1);
+    my @next_cols = grep { $_ >= 0 and $_ <= $cols } ($in_col-1..$in_col+1);
+    my $next_t = ($in_t + 1) % @frames;
+    foreach my $next_row (@next_rows) {
+        foreach my $next_col ($next_row == $in_row ? @next_cols : $in_col) {
+            push @queue, [$next_row, $next_col, $in_t + 1]
+                if not $frames[$next_t][$next_row][$next_col];
+        }
+    }
+}

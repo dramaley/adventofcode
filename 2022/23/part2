@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+
+use 5.14.0;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+our @elves;
+while (<>) { push @elves, [ $., pos ] while m/#/g; }
+
+for (my $round = 0; ; $round++) {
+    my %proposals = ();
+    for (my $elf = 0; $elf < @elves; $elf++) {
+        my ($row, $col) = @{ $elves[$elf] };
+
+        # Get a list of nearby elves
+        my @rows = ($row-1..$row+1);
+        my @cols = ($col-1..$col+1);
+        my @neighbors = (grep { $$_[0] ~~ @rows and $$_[1] ~~ @cols }
+                         @elves[0..$elf-1,$elf+1..$#elves]);
+
+        # Figure out proposed moves
+        next if not @neighbors;         # No need to move
+        # Using a lookup table avoids an ugly if/elsif chain
+        my @lookup = ([ sub { $$_[0] == $row-1 }, $row-1, $col ],
+                      [ sub { $$_[0] == $row+1 }, $row+1, $col ],
+                      [ sub { $$_[1] == $col-1 }, $row, $col-1 ],
+                      [ sub { $$_[1] == $col+1 }, $row, $col+1 ]);
+        for (my $i = 0; $i < 4; $i++) {
+            # 0 = North, 1 = South, 2 = West, 3 = East
+            my $dir = ($round + $i) % 4;
+            # Extract from the lookup table, function, row, column
+            my ($f, $r, $c) = @{ $lookup[$dir] };
+            if (not grep { &$f($_) } @neighbors) {
+                push @{ $proposals{$r}{$c} }, $elf;
+                last;
+            }
+        }
+    }
+
+    # Process the moves
+    my $updates = 0;
+    foreach my $row (keys %proposals) {
+        foreach my $col (keys %{ $proposals{$row} }) {
+            # Skip if there is not exactly 1 elf trying to take this position
+            next if 1 != scalar @{$proposals{$row}{$col}};
+            # Update elf position
+            $elves[ $proposals{$row}{$col}[0] ] = [ $row, $col ];
+            $updates++;
+        }
+    }
+
+    if ($updates == 0) {
+        print $round+1, "\n";
+        last;
+    }
+}
