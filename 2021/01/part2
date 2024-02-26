@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Start the count at -1 because we'll get a false positive at the start.
+my ($count, $prev_sum) = (-1, -~0);
+my $one = <>;
+my $two = <>;
+while (my $current = <>) {
+    my $curr_sum = $one + $two + $current;
+    $count++ if $curr_sum > $prev_sum;
+    ($prev_sum, $one, $two) = ($curr_sum, $two, $current);
+}
+print "${count}\n";

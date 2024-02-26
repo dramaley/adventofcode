@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my ($horiz, $depth, $aim) = (0, 0, 0);
+while (<>) {
+    /^forward (\d+)/ and do { $horiz += $1; $depth += $aim * $1; next; };
+    /^down (\d+)/    and do { $aim += $1; next; };
+    /^up (\d+)/      and do { $aim -= $1; next; };
+}
+print $horiz * $depth, "\n";
