@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $days = 256;
+
+# Functions with obvious names
+sub sum { my $sum = 0; $sum += $_ foreach @_; return $sum; }
+
+our @age = (0) x 9;
+$age[$_]++ foreach split /,/, <>;
+
+foreach (1..$days) {
+    my $new = shift @age;
+    $age[6] += $new;
+    $age[8] += $new;
+}
+
+print &sum(@age), "\n";
