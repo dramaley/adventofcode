@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+sub min { return (sort { $a <=> $b } @_)[0]; }
+sub sum { my $sum = 0; $sum += $_ foreach @_; return $sum; }
+sub sequence_sum {
+    my ($n) = @_;
+    return int(($n**2 + $n)/2 + 0.5);   # Sum of 1, 2, 3... $n
+}
+
+our (@crabs) = sort { $a <=> $b } map { int } split /,/, <>;
+
+# The result we want is very close to the arithmetic mean. So check both sides.
+our $fuel;
+{   my $mean = int( &sum(@crabs) / @crabs );
+    my $fuel1 = &sum(map { &sequence_sum(abs($mean - $_)) } @crabs);
+    $mean++;
+    my $fuel2 = &sum(map { &sequence_sum(abs($mean - $_)) } @crabs);
+    $fuel = &min($fuel1, $fuel2);
+}
+
+print "${fuel}\n";

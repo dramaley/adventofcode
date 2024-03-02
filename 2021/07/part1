@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Functions with obvious names
+sub sum { my $sum = 0; $sum += $_ foreach @_; return $sum; }
+
+our (@crabs) = sort { $a <=> $b } map { int } split /,/, <>;
+
+my $mid = int @crabs/2;
+my $median = @crabs % 2 ? $crabs[ $mid ] : ($crabs[$mid-1] + $crabs[$mid])/2;
+
+my $fuel = &sum(map { abs($median - $_) } @crabs);
+print "${fuel}\n";
