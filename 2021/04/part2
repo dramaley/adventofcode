@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+
+use 5.14.1;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+# Functions with obvious names
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+sub min { return (sort { $a <=> $b } @_)[0]; }
+sub sum { my $sum = 0; $sum += $_ foreach @_; return $sum; }
+
+# --------------
+#   Read input
+# --------------
+our (@moves_arr, @boards, %moves);
+{   (@moves_arr) = map { int } split(/,/, <>);
+    my $blank = <>; # Read the blank line after the ordering
+    my $index = 0;
+    while (<>) {
+        chomp;
+        if (not $_) { $index++; next; } # Process blank lines
+        push @{$boards[$index]}, [ map { int } m/(\d+)/g ];
+    }
+
+    foreach (0..$#moves_arr) {
+        $moves{$moves_arr[$_]} = $_ if not exists $moves{$moves_arr[$_]};
+    }
+}
+
+# --------------------------------------------------------------
+#   Figure out when each position on each board will be called
+# --------------------------------------------------------------
+our (@bingo);
+foreach my $b (0..$#boards) {                     # Boards
+    foreach my $r (0..$#{$boards[$b]}) {          # Rows
+        foreach my $c (0..$#{$boards[$b][$r]}) {  # Columns
+            $bingo[$b][$r][$c] = $moves{ $boards[$b][$r][$c] } // ~0;
+        }
+    }
+}
+
+# ---------------------------------------------
+#   Determine the winning move for each board
+# ---------------------------------------------
+# This is kept separate from the loop above for legibility.
+our (@winning_moves);
+foreach my $board (0..$#boards) {
+    # Find the winning moves for each row
+    my @maxima = map { &max(@$_) } @{$bingo[$board]};
+    # Now find the winning moves for each column
+    foreach my $col (0..$#{$boards[$board][0]}) {
+        push @maxima, &max( map { $$_[$col] } @{$bingo[$board]} );
+    }
+    # Save the winning move for this board
+    $winning_moves[$board] = &min(@maxima);
+}
+
+# --------------------------
+#   Find the winning board
+# --------------------------
+my $winner_index = 0;
+foreach (1..$#winning_moves) {
+    $winner_index = $_ if $winning_moves[$_] > $winning_moves[$winner_index];
+}
+
+# Calculate the score
+my (@moves) = @moves_arr[0..$winning_moves[$winner_index]];
+my (@leftovers) = ( grep { not $_ ~~ @moves }
+                    map { @$_ } @{$boards[$winner_index]} );
+my $score = &sum(@leftovers) * $moves[-1];
+print "${score}\n";
