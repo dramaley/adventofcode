@@ -1,0 +1,50 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Functions with obvious names
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+sub min { return (sort { $a <=> $b } @_)[0]; }
+
+our @grid = map { chomp; [ split // ] } <>;
+
+my $step = 1;
+while (1) {
+    my @flashers;
+    # Raise the energy of the octopusses/octopi/octopodes/octopussies by 1,
+    # tracking flashers in the process.
+    foreach my $row (0..$#grid) {
+        foreach my $col (0..$#{$grid[$row]}) {
+            $grid[$row][$col]++;
+            push @flashers, [$row, $col] if $grid[$row][$col] > 9;
+        }
+    }
+
+    # Process flashes
+    foreach (@flashers) {
+        my ($row, $col) = @$_;
+        # Influence the neighbors
+        foreach my $r (&max(0, $row-1)..&min($#grid, $row+1)) {
+            foreach my $c (&max(0, $col-1)..&min($#{$grid[$r]}, $col+1)) {
+                $grid[$r][$c]++;
+                # The conditional prevents duplicate flashes
+                push @flashers, [$r, $c] if $grid[$r][$c] == 10;
+            }
+        }
+    }
+
+    # Fix energy levels of octopi that flashed
+    foreach (@flashers) {
+        my ($row, $col) = @$_;
+        $grid[$row][$col] = 0;
+    }
+
+    # Detect when all octopi flashed
+    if (scalar(@flashers) == 100) {
+        print "${step}\n";
+        last;
+    }
+    $step++;
+}
