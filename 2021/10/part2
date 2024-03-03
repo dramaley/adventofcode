@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Associate closing braces with their opening brace, and their score
+our %openers = (')' => '(', ']' => '[', '}' => '{', '>' => '<');
+our %closers = reverse %openers;
+our %scores = (')' => 1, ']' => 2, '}' => 3, '>' => 4);
+
+my @scores;
+LINE:
+while (<>) {
+    chomp;
+    my @stack = ();
+    foreach my $char (split //) {
+        if ($char =~ m/[([{<]/) {
+            push @stack, $char;
+        } elsif ($openers{$char} eq $stack[-1]) {
+            pop @stack;
+        } else {
+            next LINE;
+        }
+    }
+    # Score the leftovers
+    my $score = 0;
+    foreach (map { $scores{$_} } map { $closers{$_} } reverse @stack) {
+        $score *= 5;
+        $score += $_;
+    }
+    push @scores, $score;
+}
+@scores = sort { $a <=> $b } @scores;
+print $scores[@scores/2], "\n";
