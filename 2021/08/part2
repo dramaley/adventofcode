@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This decoder perhaps requires some explanation. First, for the digits 0-9,
+# consider how many times each segment gets used:
+#     segment  count
+#        a       8
+#        b       6
+#        c       8
+#        d       7
+#        e       4
+#        f       9
+#        g       7
+# Next, for each digit, if we take the above counts and add them up, we get a
+# unique number. For example, for "0" the segments abcefg are used, so adding
+# those up we get 8+6+8+4+9+7=42. Each of the 10 digits are listed in %scores
+# below.
+#
+# Each line of our input consists of 2 parts. First is a list of what segments
+# are lit for each of the 10 digits. So we can count those up to get a frequency
+# of how often each segment is used. Secondly, the input contains a list of
+# digits' segments. For each digit we can add up the frequency scores and get
+# the same unique numbers that are in %scores, which we can then use to look up
+# what the actual digit is. We don't need to know which segment in the input is
+# mapped to which segment in reality, just the frequencies of how often they
+# occur. The result is an algorithm that is quite efficient.
+
+# Mapping from a frequency score to a digit
+our %scores = ( # Comment is which segments are lit for that digit
+    '42' => 0,  # abcefg
+    '17' => 1,  # cf
+    '34' => 2,  # acdeg
+    '39' => 3,  # acdfg
+    '30' => 4,  # bcdf
+    '37' => 5,  # abdfg
+    '41' => 6,  # abdefg
+    '25' => 7,  # acf
+    '49' => 8,  # abcdefg
+    '45' => 9,  # abcdfg
+);
+
+sub sum { my $sum = 0; $sum += $_ foreach @_; return $sum; }
+
+my $total = 0;
+while (<>) {
+    chomp;
+    my ($patterns, $output) = split /\s*\|\s*/;
+
+    # Calculate each character's frequency
+    my %frequency;
+    $frequency{$_} = () = $patterns =~ m/$_/g foreach 'a'..'g';
+
+    # Decode the digits
+    my $digits = (
+        # Recombine the individual digits
+        join '',
+        # split() separates each digit into display segments. Then look up the
+        # frequencies, sum them, and find it in %scores for the final digit.
+        map { $scores{ &sum(@frequency{split //, $_}) } }
+        # Separate individual digits
+        split / /, $output
+        );
+    $total += $digits;
+}
+print "${total}\n";
