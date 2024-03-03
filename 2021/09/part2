@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read input, and pad it with a border of 10s
+our (@grid) = map { chomp; [ 10, split(//), 10 ] } <>;
+unshift @grid, [ (10) x @{$grid[0]} ];
+push @grid, [ (10) x @{$grid[0]} ];
+
+# Find low points
+our @lows;
+foreach my $row (1..$#grid-1) {
+    foreach my $col (1..$#{$grid[$row]}-1) {
+        push @lows, [ $row, $col ]
+            if ($grid[$row][$col] < $grid[$row][$col-1] and
+                $grid[$row][$col] < $grid[$row][$col+1] and
+                $grid[$row][$col] < $grid[$row-1][$col] and
+                $grid[$row][$col] < $grid[$row+1][$col])
+    }
+}
+
+# Find the size of each basin
+our @basins;
+foreach (@lows) {
+    my (@queue) = ($_);
+    my %seen = ();
+    while (@queue) {
+        my ($row, $col) = @{ shift @queue };
+        next if $grid[$row][$col] >= 9;     # Climbed too high
+        next if $seen{"${row},${col}"}++;   # Been here before
+        push @queue, ([ $row, $col-1 ], [ $row-1, $col ],
+                      [ $row, $col+1 ], [ $row+1, $col ]);
+    }
+    # %seen contains a list of points in the basin. All we need is the count:
+    push @basins, scalar %seen;
+}
+
+# Sort basins largest to smallest
+@basins = sort { $b <=> $a } @basins;
+
+my $result = $basins[0] * $basins[1] * $basins[2];
+print "${result}\n";

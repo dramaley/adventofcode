@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read input, and pad it with a border of 10s
+our (@grid) = map { chomp; [ 10, split(//), 10 ] } <>;
+unshift @grid, [ (10) x @{$grid[0]} ];
+push @grid, [ (10) x @{$grid[0]} ];
+
+my $risks = 0;
+foreach my $row (1..$#grid-1) {
+    foreach my $col (1..$#{$grid[$row]}-1) {
+        $risks += 1 + $grid[$row][$col]
+            if ($grid[$row][$col] < $grid[$row][$col-1] and
+                $grid[$row][$col] < $grid[$row][$col+1] and
+                $grid[$row][$col] < $grid[$row-1][$col] and
+                $grid[$row][$col] < $grid[$row+1][$col])
+    }
+}
+print "${risks}\n";
