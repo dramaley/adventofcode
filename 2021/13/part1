@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my @points;
+while (<>) {
+    chomp;
+    last if not $_;
+    push @points, [ split /,/ ];
+}
+my @instructions = map { chomp; s/^fold along //; $_; } <>;
+
+foreach (@instructions) {
+    my ($axis, $line) = split /=/;
+    my $coord = int ($axis eq 'y');
+    # Process the fold
+    foreach my $i (grep { $points[$_][$coord] > $line } 0..$#points) {
+        $points[$i][$coord] = 2 * $line - $points[$i][$coord];
+    }
+    # Remove duplicates
+    my %seen;
+    @points = grep { !$seen{join(',', @$_)}++ } @points;
+
+    last;       # Only process 1 instruction for Part 1
+}
+
+print scalar(@points), "\n";
