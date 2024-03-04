@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $polymer = <>; chomp $polymer;
+our %pairs = map { chomp; split / -> /; } <>;
+
+foreach (1..10) {
+    my $pos = 0;
+    while ($pos < length($polymer)-1) {
+        my $key = substr $polymer, $pos++, 2;
+        substr $polymer, $pos++, 0, $pairs{$key};
+    }
+}
+
+my %counts;
+$counts{$_}++ foreach split //, $polymer;
+my @quantities = sort { $a <=> $b } values %counts;
+print $quantities[-1] - $quantities[0], "\n";

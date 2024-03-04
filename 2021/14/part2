@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read input
+our $polymer = <>; chomp $polymer;
+our %rules = map { chomp; split / -> /; } <>;
+
+# Expand the polymer into pairs and count how many we start with
+our %pairs;
+$pairs{$_}++ foreach $polymer =~ m/(?=(..))/g;
+
+# Now count how many of each element we start with
+our %element;
+$element{$_}++ foreach split //, $polymer;
+
+foreach (1..40) {
+    my %newpairs;
+    foreach my $pair (keys %pairs) {
+        my $insert = $rules{$pair};
+        my $count = $pairs{$pair};
+        $newpairs{substr($pair, 0, 1) . $insert} += $count;
+        $newpairs{$insert . substr($pair, 1, 1)} += $count;
+        $element{$insert} += $count;
+    }
+    %pairs = %newpairs;
+}
+
+my @quantities = sort { $a <=> $b } values %element;
+print $quantities[-1] - $quantities[0], "\n";
