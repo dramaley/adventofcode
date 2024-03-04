@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use 5.14.1;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+our %map;
+while (<>) {
+    chomp;
+    my ($one, $two) = split /-/;
+    push @{ $map{$one} }, $two;
+    push @{ $map{$two} }, $one;
+}
+
+our %paths;
+our (@queue) = (['start']);
+while (@queue) {
+    my (@path) = @{ shift @queue };
+    if ($path[-1] eq 'end') {
+        $paths{join('-', @path)}++;     # Save the completed path
+        next;
+    }
+    foreach my $next (@{ $map{$path[-1]} }) {
+        # Skip if the next room is lowercase and has already been visited
+        next if $next =~ m/^[a-z]/ and $next ~~ @path;
+        push @queue, [ @path, $next ];
+    }
+}
+print scalar(%paths), "\n";

@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+
+use 5.14.1;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+our %map;
+while (<>) {
+    chomp;
+    my ($one, $two) = split /-/;
+    # The conditionals ensure we never loop back to 'start'
+    push @{ $map{$one} }, $two unless $two eq 'start';
+    push @{ $map{$two} }, $one unless $one eq 'start';
+}
+
+our %paths;
+our (@queue) = (['start']);
+while (@queue) {
+    my (@path) = @{ shift @queue };
+    if ($path[-1] eq 'end') {
+        $paths{join('-', @path)}++;     # Save the completed path
+        next;
+    }
+
+    # Check for lowercase rooms that have been visited twice
+    my %seen;
+    $seen{$_}++ foreach grep /^[a-z]/, @path;
+    my $duplicate = grep { $_ > 1 } values %seen;
+
+    foreach my $next (@{ $map{$path[-1]} }) {
+        # Skip if the next room is lowercase and would create excess duplicates
+        next if $next =~ m/^[a-z]/ and $next ~~ @path and $duplicate;
+        push @queue, [ @path, $next ];
+    }
+}
+print scalar(%paths), "\n";
