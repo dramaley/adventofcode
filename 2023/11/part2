@@ -34,8 +34,8 @@ sub mind_the_gap {
 # Read the data into a list of coordinates where the galaxies are.
 {   my $row = 0;
     while (<>) {
-	push @data, [$row, (pos) - 1] while m/#/g;
-	$row++;
+        push @data, [$row, (pos) - 1] while m/#/g;
+        $row++;
     }
 }
 

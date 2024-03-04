@@ -34,9 +34,9 @@ for (my $i = 1; $i < $#input; $i++) {
         my @search_strings = (map { substr($_, $gear_pos-1, 3) }
                               @input[($i-1)..($i+1)]);
 
-	# Loop over the gear's vicinity looking for part numbers. When a number
-	# is found, calculate the coordinates of that number in the
-	# @position_to_part_nums array and save it in @partial.
+        # Loop over the gear's vicinity looking for part numbers. When a number
+        # is found, calculate the coordinates of that number in the
+        # @position_to_part_nums array and save it in @partial.
         my @partial = ();
         for (my $j = 0; $j <= $#search_strings; $j++) {
             while ($search_strings[$j] =~ m/(\d+)/g) {
@@ -49,9 +49,9 @@ for (my $i = 1; $i < $#input; $i++) {
             }
         }
 
-	# If exactly 2 part numbers were found, then process them.
+        # If exactly 2 part numbers were found, then process them.
         if (@partial == 2) {
-	    $sum += $partial[0] * $partial[1];
+            $sum += $partial[0] * $partial[1];
         }
     }
 }
