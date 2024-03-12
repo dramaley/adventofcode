@@ -1,0 +1,66 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+
+# Puzzle input, as a simple 2D array of numbers
+our @costs = map { chomp; [ map { int } split // ] } <>;
+
+# Set the last index of the rows/columns to simplify things
+our $rows = $#costs;
+our $cols = $#{$costs[$rows]};
+
+# Expand the grid
+foreach my $row (0..$rows) {
+    foreach my $col (0..$cols) {
+        foreach my $i (0..4) {
+            foreach my $j (int(!$i)..4) {
+                my $new = ($costs[$row][$col] + $i + $j - 1) % 9 + 1;
+                $costs[$row + $i * ($rows+1)][$col + $j * ($cols+1)] = $new;
+            }
+        }
+    }
+}
+
+# Refresh the last indices after the expansion
+$rows = $#costs;
+$cols = $#{$costs[$rows]};
+
+our %directions = ('^' => [ 0, -1 ], 'v' => [ 0, 1 ],
+                   '>' => [ 1, 0 ],  '<' => [ -1, 0 ]);
+
+my $pq = Array::Heap::PriorityQueue::Numeric->new();
+{   # cost, row, column, sequence
+    my $init = [ 0, 0, 0, undef ];
+    $pq->add($init, 0);
+}
+my @best_map;                           # Best time to reach a position.
+my $result = ~0;                        # Assume infinity
+while (my $entry = $pq->get()) {
+    my ($cost, $col, $row, $seq) = @$entry;
+    # Bail out if we've been here before, and last time had a lower cost
+    next if (defined $best_map[$row][$col] and
+             $best_map[$row][$col] <= $cost);
+    # Current cost is lowest; save it
+    $best_map[$row][$col] = $cost;
+    # Reached the goal
+    my $distance_from_goal = abs($col - $cols) + abs($row - $rows);
+    if ($distance_from_goal == 0) {
+        next if $cost >= $result;
+        $result = $cost;
+    }
+    # Main loop / still work to be done
+    foreach my $next (values %directions) {
+        my ($col_dir, $row_dir) = @$next;               # Direction of movement
+        my $new_col = $col + $col_dir;                  # New coordinate
+        my $new_row = $row + $row_dir;                  # "
+        next if ($new_col < 0 or $new_col > $cols or    # Skip if out of bounds
+                 $new_row < 0 or $new_row > $rows);
+        my $new_cost = $cost + $costs[$new_row][$new_col];
+        $pq->add([$new_cost, $new_col, $new_row, $entry],
+                 $new_cost + abs($new_col - $cols) + abs($new_row - $rows));
+    }
+}
+print "${result}\n";
