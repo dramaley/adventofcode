@@ -3,7 +3,7 @@
 # elsewhere. So i'm removing them from this repository and making sure they
 # aren't included in the future.
 problem.txt
-sample*
+*sample*
 input*
 
 

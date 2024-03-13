@@ -1,0 +1,92 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Small functions with (mostly) obvious names, used as operators when parsing
+# packets
+sub sum  { my $val = shift; $val += $_ foreach @_; return $val; }
+sub prod { my $val = shift; $val *= $_ foreach @_; return $val; }
+sub min  { (sort { $a <=> $b } @_)[0] }
+sub max  { (sort { $a <=> $b } @_)[-1] }
+sub gt   { int($_[0] > $_[1]) }
+sub lt   { int($_[0] < $_[1]) }
+sub eq   { int($_[0] == $_[1]) }
+# Mapping from type ID to operators. Note that ID 4 is not used for an operator,
+# as it denotes a literal value.
+our @switchboard = (\&sum, \&prod, \&min, \&max, undef, \&gt, \&lt, \&eq);
+
+# ------------------------------------------------------------------------------
+#  Given a scalar reference and number of bits, remove that number of bits from
+#  the front of the string and return them. Note that "bits" actually refers to
+#  characters, since the scalar is expected to be a string consisting entirely
+#  of "0"s and "1"s.
+# ------------------------------------------------------------------------------
+sub get_bits {
+    my ($sref, $bits) = @_;
+    return substr($$sref, 0, $bits, '');
+}
+
+# ------------------------------------------------------------------------------
+#  Given a scalar reference and number of bits, remove that number of bits from
+#  the front of the string, convert them to a normal integer, and return the
+#  result. Note that "bits" actually refers to characters.
+# ------------------------------------------------------------------------------
+sub get_num {
+    return oct('0b' . &get_bits(@_));
+}
+
+# ------------------------------------------------------------------------------
+#  Parse a packet. The code here is going to be a bit esoteric as it tries to
+#  match the obtuse packet format described in the problem.
+# ------------------------------------------------------------------------------
+sub persnickety_packet_parser {
+    my ($sref) = @_;
+
+    my $version = &get_num($sref, 3);
+    my $typeid = &get_num($sref, 3);
+    if ($typeid == 4) {
+        # Process a literal value
+        my $value = 0;
+        my $next;
+        do {
+            $next = &get_bits($sref, 1);
+            $value <<= 4;
+            $value += &get_num($sref, 4);
+        } while $next == 1;
+        return $value;
+    } else {
+        # Process an operator
+        my @values;
+        my $length_type_id = &get_bits($sref, 1);
+        if ($length_type_id) {
+            # "1" means the next 11 bits represents the number of sub-packets
+            # contained by this packet.
+            my $sub_count = &get_num($sref, 11);
+            push(@values, &persnickety_packet_parser($sref))
+                foreach 1..$sub_count;
+        } else {
+            # "0" means the next 15 bits represent the total length in bits of
+            # the sub-packets contained by this packet
+            my $sub_bits = &get_num($sref, 15);
+            my $sub_packet = &get_bits($sref, $sub_bits);
+            push(@values, &persnickety_packet_parser(\$sub_packet))
+                while $sub_packet;
+        }
+        # Process the values that were collected
+        return &{$switchboard[$typeid]}(@values);
+    }
+}
+
+
+# Read input
+our ($input) = map { chomp; $_; } <>;
+
+# Convert hexadecimal input to a binary string. Conversion is done by character
+# rather than all at once to avoid overflow.
+our $binary = join('', map { sprintf '%04b', hex } split //, $input);
+
+# Process it!
+my $value = &persnickety_packet_parser(\$binary);
+print "$value\n";
