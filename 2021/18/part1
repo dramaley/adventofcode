@@ -1,0 +1,147 @@
+#!/usr/bin/perl
+
+use 5.10.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#  Simple functions with obvious names
+# ------------------------------------------------------------------------------
+sub ceil {
+    my $t = int($_[0]);
+    return ($t != $_[0]) ? ($_[0] < 0) ? $t : $t + 1 : $_[0];
+}
+
+sub floor { return ($_[0] < 0) ? int($_[0]) - 1 : int($_[0]); }
+
+sub max   { return (sort { $a <=> $b } @_)[-1]; }
+
+
+# ------------------------------------------------------------------------------
+#  Takes references to 2 snailfish numbers, and adds the second to the first
+# ------------------------------------------------------------------------------
+sub addition {
+    my ($first, $second) = @_;
+    push @$first, @$second;
+    $$_[1]++ foreach @$first;   # Increment depth
+}
+
+
+# ------------------------------------------------------------------------------
+#  Explode a snailfish number, returning true if actions were taken
+# ------------------------------------------------------------------------------
+sub explode {
+    my ($list) = @_;
+    for my $i (0..$#$list) {
+        my $depth = $$list[$i][1];
+        next if $depth <= 4;                                    # Don't explode
+        $$list[$i-1][0] += $$list[$i][0] if $i > 0;             # Explode left
+        $$list[$i+2][0] += $$list[$i+1][0] if $i < $#$list - 1; # Explode right
+        splice @$list, $i, 2, [0, $depth - 1];                  # Clear debris
+        return 1;
+    }
+    return 0;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Calculates the magnitude of a snailfish number
+# ------------------------------------------------------------------------------
+sub magnitude {
+    my ($list) = @_;
+    my $max_depth = &max(map { $$_[1] } @$list);
+    for (my $depth = $max_depth; $depth > 0; $depth--) {
+        # Plumb the depths, looking for pairs
+        for (my $i = 0; $i < $#$list; $i++) {
+            # Found a matched pair, convert it into a number
+            if ($$list[$i][1] == $depth and $$list[$i+1][1] == $depth) {
+                my $partial = 3 * $$list[$i][0] + 2 * $$list[$i+1][0];
+                splice @$list, $i, 2, [$partial, $depth - 1];
+            }
+        }
+    }
+    return $$list[0][0];
+}
+
+
+# ------------------------------------------------------------------------------
+#  Split a snailfish number, returning true if actions were taken
+# ------------------------------------------------------------------------------
+sub split {
+    my ($list) = @_;
+    for my $i (0..$#$list) {
+        my ($value, $depth) = @{$$list[$i]};
+        next if $value < 10;                    # Don't split
+        splice(@$list, $i, 1,
+               [&floor($value/2), $depth+1],
+               [&ceil($value/2),  $depth+1]);
+        return 1;
+    }
+    return 0;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Parse a line of input
+# ------------------------------------------------------------------------------
+sub parse {
+    my ($input) = @_;
+    chomp $input;
+    my $depth = 0;
+    my @parsed;
+    foreach (split //, $input) {
+        /\[/   and do { $depth++; next; };
+        /\]/   and do { $depth--; next; };
+        /,/    and do { next; };
+        /(\d)/ and do { push @parsed, [$1, $depth]; next; };
+        die "Unrecognized character '$_'";
+    }
+    die 'Uneven depth' if $depth != 0;
+    return \@parsed;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Restore a line of input (used for development/debugging)
+# ------------------------------------------------------------------------------
+sub unparse {
+    my ($parsed) = @_;
+
+    my $string = '';
+    my @elems = ();             # How many elements are at each depth
+    foreach (@$parsed) {
+        my ($value, $depth) = @$_;
+        # Close levels of depth as needed
+        while ($depth < @elems or ($elems[-1] // 0) == 2) {
+            $string .= ']';
+            pop @elems;
+        }
+        # Move to the next element
+        if ($string =~ /(?:\]|\d)$/) {
+            $string .= ',';
+            $elems[-1]++;
+        }
+        # Open new levels of depth as needed
+        while ($depth > @elems) {
+            $string .= '[';
+            push @elems, 1;
+        }
+        $string .= $value;
+    }
+    $string .= ']' x @elems;    # Close out
+    $string .= "\n";
+    return $string;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+our @input = map { &parse($_) } <>;
+while ($#input) {
+    my ($next) = splice @input, 1, 1;
+    &addition($input[0], $next);
+    1 while &explode($input[0]) or &split($input[0]);
+}
+print &magnitude($input[0]), "\n";
