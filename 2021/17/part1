@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read the target input.
+my ($tgt_xmin, $tgt_xmax, $tgt_ymin, $tgt_ymax) = <> =~ m/([-\d]+)/g;
+
+# Making a couple huge assumptions here:
+#   1. the target y coordinates are negative
+#   2. there is an odd triangular number that will work for x
+# Both of these assumptions are true for each of the sample and the input.
+my $v_ymax = abs($tgt_ymin) - 1;
+
+my $max_y = $v_ymax * ($v_ymax + 1) / 2;
+
+print "$max_y\n";

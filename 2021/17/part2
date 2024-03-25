@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Functions with obvious names
+sub ceil {
+    my $t = int($_[0]);
+    return ($t != $_[0]) ? ($_[0] < 0) ? $t : $t + 1 : $_[0];
+}
+sub floor { return ($_[0] < 0) ? int($_[0]) - 1 : int($_[0]); }
+sub max   { return (sort { $a <=> $b } @_)[-1]; }
+sub min   { return (sort { $a <=> $b } @_)[0]; }
+
+# Return the larger solution of the quadratic equation
+sub quadratic {
+    my ($a, $b, $c) = @_;
+    my $discriminant = $b**2 - 4 * $a * $c;
+    return undef if $discriminant < 0;  # Pretend imaginary numbers don't exist.
+    return &max((-$b - sqrt($discriminant)) / (2 * $a),
+                (-$b + sqrt($discriminant)) / (2 * $a));
+}
+
+
+# Read the target input.
+my ($tgt_xmin, $tgt_xmax, $tgt_ymin, $tgt_ymax) = <> =~ m/([-\d]+)/g;
+
+# Making a huge assumption that there is an odd triangular number that will work
+# for x. This assumption is true for both the sample and the input.
+my $v_ymax = abs($tgt_ymin) - 1;
+
+# Find all possible combinations of time + y velocity
+my %y_solutions;
+foreach my $v_y ($tgt_ymin..$v_ymax) {
+    # Offset lets us move forward in time to when a probe launched upwards
+    # crosses the x-axis again
+    my $offset = 0;
+    my $local_v_y = $v_y;
+    if ($v_y > 0) {
+        $offset = (2 * $v_y) + 1;
+        $local_v_y = -$v_y - 1;
+    }
+
+    # Find the range of times where this velocity works
+    my $t_min = &ceil(&quadratic(-1, 2 * $local_v_y + 1, -2 * $tgt_ymax));
+    my $t_max = &floor(&quadratic(-1, 2 * $local_v_y + 1, -2 * $tgt_ymin));
+
+    push @{$y_solutions{$_ + $offset}}, $v_y foreach $t_min..$t_max;
+}
+
+# Now find combinations of time + x velocity.
+my $v_xmin_rest = &ceil(&quadratic(1, 1, -2 * $tgt_xmin));
+my $v_xmax_rest = &floor(&quadratic(1, 1, -2 * $tgt_xmax));
+my %x_solutions;
+foreach my $t (keys %y_solutions) {     # Only search possible times
+    # Find the range of possible values that are in the target
+    my $v_xmin = &ceil((((2 * $tgt_xmin) / $t) + $t - 1) / 2);
+    my $v_xmax = &floor((((2 * $tgt_xmax) / $t) + $t - 1) / 2);
+    my @range = &max($v_xmin, $t)..$v_xmax;
+
+    # Find cases where the probe came to rest
+    my @rests = $v_xmin_rest < $t ? ($v_xmin_rest..&min($v_xmax_rest, $t)) : ();
+
+    foreach my $v_x (@range, @rests) {
+        push @{$x_solutions{$t}}, $v_x;
+    }
+}
+
+my %solutions;
+while (my ($t, $v_xs) = each (%x_solutions)) {
+    foreach my $v_x (@$v_xs) {
+        foreach my $v_y (@{$y_solutions{$t}}) {
+            $solutions{"${v_x},${v_y}"}++;
+        }
+    }
+}
+
+print scalar(%solutions), "\n";
