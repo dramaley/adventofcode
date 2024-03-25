@@ -144,13 +144,13 @@ our @input = map { &parse($_) } <>;
 my @magnitudes;
 for (my $i = 0; $i < @input; $i++) {
     for (my $j = $i+1; $j < @input; $j++) {
-	# Try adding both directions since "addition" is not commutative
-	foreach ([$i, $j], [$j, $i]) {
-	    my ($first, $second) = map { dclone($input[$_]) } @$_;
-	    &addition($first, $second);
-	    1 while &explode($first) or &split($first);
-	    push @magnitudes, &magnitude($first);
-	}
+        # Try adding both directions since "addition" is not commutative
+        foreach ([$i, $j], [$j, $i]) {
+            my ($first, $second) = map { dclone($input[$_]) } @$_;
+            &addition($first, $second);
+            1 while &explode($first) or &split($first);
+            push @magnitudes, &magnitude($first);
+        }
     }
 }
 print &max(@magnitudes), "\n";
