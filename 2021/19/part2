@@ -177,10 +177,3 @@ foreach my $i (0..$#scanners-1) {
     }
 }
 print "${manhattan}\n";
-
-
-# 11915 is too low  <-- what the above code generates
-# 11918 is too low
-# 13147 is too low
-
-# cheated to get 13148.
