@@ -1,0 +1,156 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# From the problem description, scanners need 12 beacons in common to overlap
+our $matches = 12;
+# Number of pairs that must match between scanners
+our $pairs = ($matches * ($matches - 1)) / 2;
+
+# Main data structure. Each element starts out referring to what one scanner
+# can see, and consists of a hash with 3 keys:
+#   points      - List of points of the beacons
+#   points_hash - Same data as points, but in a different format so we can
+#                 determine uniqueness easily
+#   squares     - Hash of squares of the distances between the points, with
+#                 values being a list of index pairs to the points list.
+our @data;
+
+# There are 24 possible orientations for each scanner: each of the 6 directions,
+# and 4 rotations for each of those directions. Define functions to map to each
+# of those 24.
+our %rotations =
+    (map { $_ => eval "sub { my (\$x, \$y, \$z) = \@_; return ($_); }" }
+     ' $x,  $y,  $z', ' $x,  $z, -$y', ' $x, -$y, -$z', ' $x, -$z,  $y',
+     ' $y,  $x, -$z', ' $y,  $z,  $x', ' $y, -$x,  $z', ' $y, -$z, -$x',
+     ' $z,  $x,  $y', ' $z,  $y, -$x', ' $z, -$x, -$y', ' $z, -$y,  $x',
+     '-$x,  $y, -$z', '-$x,  $z,  $y', '-$x, -$y,  $z', '-$x, -$z, -$y',
+     '-$y,  $x,  $z', '-$y,  $z, -$x', '-$y, -$x, -$z', '-$y, -$z,  $x',
+     '-$z,  $x, -$y', '-$z,  $y,  $x', '-$z, -$x,  $y', '-$z, -$y, -$x');
+
+
+# ------------------------------------------------------------------------------
+#  Given a reference to an element in @data, and a point, add the point to the
+#  reference.
+# ------------------------------------------------------------------------------
+sub add_point {
+    my ($dref, @point) = @_;
+
+    # The point already exists in this element
+    return if $$dref{'points_hash'}{"@point"}++;
+    # Save the point
+    push @{$$dref{'points'}}, \@point;
+    # Calculate squares of distances
+    my $j = $#{$$dref{'points'}};
+    for my $i (0..$j-1) {
+        my $square = &square($$dref{'points'}[$i], $$dref{'points'}[$j]);
+        push @{$$dref{'squares'}{$square}}, [ $i, $j ];
+    }
+}
+
+
+# ------------------------------------------------------------------------------
+#  Calculate the intersection of 2 lists. Lists cannot have duplicate entries.
+# ------------------------------------------------------------------------------
+sub intersection {
+    my ($a, $b) = @_;
+    my (%isect, %union);
+    foreach my $e (@$a, @$b) { $union{$e}++ && $isect{$e}++ }
+    return [ keys %isect ];
+}
+
+
+# ------------------------------------------------------------------------------
+#  Merge the beacons from the source scanner into the target. Overlaps is a
+#  list reference to which pairs of beacons are the same distance apart.
+# ------------------------------------------------------------------------------
+sub merge {
+    my ($target, $source, $overlaps) = @_;
+
+    # Figure out which rotation will translate the source onto the target
+    my ($rotation_key, @scanner_pos);
+  OUTER:
+    foreach my $overlap (@$overlaps) {
+        # Make sure there is only 1 set of points at this distance apart.
+        die 'Unanticipated situation' if $#{$$source{'squares'}{$overlap}};
+        my @src_indices = @{ $$source{'squares'}{$overlap}[0] };
+        my ($s1, $s2) =
+            (sort { &square([0,0,0], $a) <=> &square([0,0,0], $b) }
+             @{$$source{'points'}}[ @src_indices ]);
+        my @tgt_indices = @{ $$target{'squares'}{$overlap}[0] };
+        my ($t1, $t2) =
+            (sort { &square([0,0,0], $a) <=> &square([0,0,0], $b) }
+             @{$$target{'points'}}[ @tgt_indices ]);
+
+        foreach my $rot (keys %rotations) {
+            my ($s1rot, $s2rot) = map { [ &{$rotations{$rot}}(@$_) ] } $s1, $s2;
+            # Try this rotation
+            my @one = map { $$t1[$_] - $$s1rot[$_] } 0..2;
+            my @two = map { $$t2[$_] - $$s2rot[$_] } 0..2;
+            if ("@one" eq "@two") {
+                $rotation_key = $rot;   # Save this rotation
+                @scanner_pos = @one;    # Save the scanner location
+                last OUTER;
+            }
+        }
+    }
+
+    # Apply the rotation and merge the source into the target!
+
+    foreach (@{$$source{'points'}}) {
+        my @point = &{$rotations{$rotation_key}}(@$_);
+        $point[$_] += $scanner_pos[$_] foreach 0..2;
+        &add_point($target, @point);
+    }
+}
+
+
+# ------------------------------------------------------------------------------
+#  Given references to 2 points, calculate the square of the distance. This is
+#  more useful than the actual distance because with integer points the square
+#  of the distance will also be an integer (which can be compared), but the
+#  actual distance may not be (and cannot be compared due to rounding errors).
+# ------------------------------------------------------------------------------
+sub square {
+    my ($a, $b) = @_;
+    my $d = 0;
+    $d += ($$a[$_] - $$b[$_])**2 foreach 0..$#$a;
+    return $d;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Read input
+{   my $i;
+    while (<>) {
+        chomp;
+        /^-+ scanner (\d+) -+$/ and do { $i = $1; next; };
+        /^$/                    and next;
+        &add_point(\%{$data[$i]}, map { int } split /,/);
+    }
+}
+
+# Find overlapping scanners and merge them
+while ($#data) {
+    # Use "for" instead of "foreach (0..$#data-1)" to ensure we don't overrun
+    # the end of the list, since the splice will shrink it.
+    for (my $i = 0; $i < $#data; $i++) {
+        # Use "reverse" for similar reasons, to make sure we don't overrun
+        foreach my $j (reverse $i+1..$#data) {
+            my @overlaps = @{ &intersection([ keys %{$data[$i]{'squares'}} ],
+                                            [ keys %{$data[$j]{'squares'}} ]) };
+            next if @overlaps < $pairs;
+            @overlaps = sort { $a <=> $b } @overlaps; # For consistency
+            &merge($data[$i], $data[$j], \@overlaps);
+            splice @data, $j, 1;
+            last;
+        }
+    }
+}
+
+print scalar(@{$data[0]{'points'}}), "\n";
