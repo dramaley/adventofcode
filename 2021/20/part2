@@ -1,0 +1,101 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $iteration;
+
+# Read input: enhancement algorithm, blank line, and the image
+our @enhance = map { tr/.#/01/ ? int $_ : () } split //, <>;
+<>;
+our @image = map { [ map { tr/.#/01/ ? int $_ : () } split // ] } <>;
+
+
+# ------------------------------------------------------------------------------
+#  Display the image (for debugging purposes)
+# ------------------------------------------------------------------------------
+sub display {
+    print(map { "@$_\n" }
+          # Temporary variable is necessary to avoid modifying the image
+          map { [ map { my $tmp = $_; $tmp =~ tr/01/.#/; $tmp } @$_ ] }
+          @image);
+    print "\n";
+}
+
+
+# ------------------------------------------------------------------------------
+#  Do the enhancement
+# ------------------------------------------------------------------------------
+sub enhance {
+    my @newimage;
+    foreach my $row (0..$#image) {
+        foreach my $col (0..$#{$image[$row]}) {
+            # Get the 9 bits that make up the index to the @enhance array
+            my $i = 0;
+            foreach my $i_row ($row-1..$row+1) {
+                foreach my $i_col ($col-1..$col+1) {
+                    $i *= 2;
+                    $i += &getpixel($i_row, $i_col);
+                }
+            }
+            # Look up the entry in the @enhance array and store it
+            $newimage[$row][$col] = $enhance[$i];
+        }
+    }
+    @image = @newimage;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Add a 2-pixel border around the image
+# ------------------------------------------------------------------------------
+sub enlarge {
+    my $value = &outside;
+    # Add the border to each existing row
+    foreach my $row (@image) {
+        unshift @$row, ($value) x 2;
+        push    @$row, ($value) x 2;
+    }
+    # Add the extra rows at the top and bottom
+    my $len = scalar @{$image[0]};
+    unshift @image, [ ($value) x $len ], [ ($value) x $len ];
+    push    @image, [ ($value) x $len ], [ ($value) x $len ];
+}
+
+
+# ------------------------------------------------------------------------------
+#  Retrieve a pixel from the image, with proper out-of-bounds handling
+# ------------------------------------------------------------------------------
+sub getpixel {
+    my ($row, $col) = @_;
+    return &outside
+        if $row < 0 or $row > $#image or $col < 0 or $col > $#{$image[$row]};
+    return $image[$row][$col];
+}
+
+
+# ------------------------------------------------------------------------------
+#  Return the value of pixels that are outside the edges of the image
+# ------------------------------------------------------------------------------
+{   my @outer = (0, $enhance[0]);
+    sub outside {
+        return $outer[ $iteration % 2 ];
+    }
+}
+
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+#print "Initial state:\n"; &display;
+for ($iteration = 0; $iteration < 50; $iteration++) {
+    &enlarge;
+#    print "Iteration ${iteration} enlargement:\n"; &display;
+    &enhance;
+#    print "Iteration ${iteration} enhancement:\n"; &display;
+}
+
+my $sum = 0;
+$sum += $_ foreach map { @$_ } @image;
+print "${sum}\n";
