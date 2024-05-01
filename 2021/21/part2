@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @initial_position = map { m/(\d+)$/; $1 } <>;   # Tiny parser of inputs
+our @score = (0) x @initial_position;
+our @wins = (0) x @initial_position;
+# Given 3 rolls of a 3-sided die, how many times each possible score occurs
+our %roll_counts = (3 => 1, 4 => 3, 5 => 6, 6 => 7, 7 => 6, 8 => 3, 9 => 1);
+
+# Mapping of Universe states to counts. Key is made up of: Player positions (2
+# values), Player scores (2 values), Next player's turn (1 value).
+our %universe = ( join("\t", @initial_position, 0, 0, 0) => 1 );
+
+while (keys %universe) {
+    my %new_universe;
+    while (my ($pos, $global_count) = each %universe) {
+        my (@this) = split /\t/, $pos;
+        my (@global_position) = @this[0, 1];
+        my (@global_score)    = @this[2, 3];
+        my ($turn)     = $this[4];
+        foreach my $roll (keys %roll_counts) {
+            my (@position) = @global_position;
+            my (@score) = @global_score;
+            my $count = $roll_counts{$roll} * $global_count;
+            # Same basic algorithm as in Part 1
+            $position[$turn] += $roll;
+            $position[$turn] -= 10 while $position[$turn] > 10;
+            $score[$turn] += $position[$turn];
+            # Scoring is a bit different though
+            if ($score[$turn] >= 21) {
+                $wins[$turn] += $count;
+            } else {
+                my $key = join("\t", @position, @score, 1 - $turn);
+                $new_universe{$key} += $count;
+            }
+        }
+    }
+    %universe = %new_universe;
+}
+
+print '', (sort { $a <=> $b } @wins)[-1], "\n";
