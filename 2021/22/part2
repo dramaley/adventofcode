@@ -1,0 +1,88 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Small functions with obvious names
+sub min { return (sort { $a <=> $b } @_)[0]; }
+sub max  { (sort { $a <=> $b } @_)[-1] }
+
+# ------------------------------------------------------------------------------
+#  Given a list of cuboid objects, return the total volume
+# ------------------------------------------------------------------------------
+sub process_cuboids {
+    my ($unprocessed) = @_;
+
+    my $volume = 0;
+    my @processed;
+    # Process input in reverse so that handling of "off" values is easier
+    for my $this (reverse @$unprocessed) {
+        if ($$this{'state'}) {
+            my @overlapping = map { &test_overlap($this, $_) } @processed;
+            # Use recursion to figure out how much to subtract for overlaps
+            $volume += &volume($this) - &process_cuboids(\@overlapping);
+        }
+        # Remember the cuboid regardless of whether it is "on" or "off" because
+        # either way it masks whatever is placed later.
+        push @processed, $this;
+    }
+    return $volume;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Test whether 2 cuboids overlap and return the intersection if they do
+# ------------------------------------------------------------------------------
+sub test_overlap {
+    my ($one, $two) = @_;
+
+    my $x_min = &max($$one{'x_min'}, $$two{'x_min'});
+    my $y_min = &max($$one{'y_min'}, $$two{'y_min'});
+    my $z_min = &max($$one{'z_min'}, $$two{'z_min'});
+    my $x_max = &min($$one{'x_max'}, $$two{'x_max'});
+    my $y_max = &min($$one{'y_max'}, $$two{'y_max'});
+    my $z_max = &min($$one{'z_max'}, $$two{'z_max'});
+
+    if ($x_min <= $x_max and $y_min <= $y_max and $z_min <= $z_max) {
+        return { 'x_min' => $x_min, 'y_min' => $y_min, 'z_min' => $z_min,
+                 'x_max' => $x_max, 'y_max' => $y_max, 'z_max' => $z_max,
+                 'state' => 1 };
+    } else {
+        return ();
+    }
+}
+
+
+# ------------------------------------------------------------------------------
+#  Calculate the volume of a cuboid
+# ------------------------------------------------------------------------------
+sub volume {
+    my ($this) = @_;
+    my $vol = 1;
+    $vol *= ($$this{'x_max'} - $$this{'x_min'} + 1);
+    $vol *= ($$this{'y_max'} - $$this{'y_min'} + 1);
+    $vol *= ($$this{'z_max'} - $$this{'z_min'} + 1);
+    return $vol;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Read input so we can process it in reverse later.
+my @input;
+{   my $regex = ('[^-\d]+([-\d]+)') x 6; $regex = qr/^(on|off)${regex}/;
+    while (<>) {
+        my ($state, @cuboid) = m/$regex/;
+        # Convert state into a number
+        $state = ${{'on' => 1, 'off' => 0}}{$state};
+        # Use a hash so the key names help make the code self-documenting
+        my %hash = ('state' => $state);
+        @hash{'x_min', 'x_max', 'y_min', 'y_max', 'z_min', 'z_max'} = @cuboid;
+        push @input, \%hash;
+    }
+}
+
+print &process_cuboids(\@input), "\n";

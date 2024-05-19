@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @grid;
+
+my $regex = ('[^-\d]+([-\d]+)') x 6; $regex = qr/^(on|off)${regex}/;
+  WHILE:
+    while (<>) {
+        my ($state, @cuboid) = m/$regex/;
+        # Convert state into a number
+        $state = ${{'on' => 1, 'off' => 0}}{$state};
+        # Enforce range limits
+        for(my $i = 0; $i < @cuboid; $i += 2) {
+            $cuboid[$i] = -50 if $cuboid[$i] < -50;
+            $cuboid[$i+1] = 50 if $cuboid[$i+1] > 50;
+            next WHILE if $cuboid[$i+1] < $cuboid[$i];
+        }
+        # Shift ranges to avoid negative indices
+        $cuboid[$_] += 50 foreach 0..$#cuboid;
+        # Process the cuboid
+        foreach my $x ($cuboid[0]..$cuboid[1]) {
+            foreach my $y ($cuboid[2]..$cuboid[3]) {
+                foreach my $z ($cuboid[4]..$cuboid[5]) {
+                    $grid[$x][$y][$z] = $state;
+                }
+            }
+        }
+    }
+
+# Count how many cubes are on
+my $sum = 0;
+foreach my $x (0..$#grid) {
+    foreach my $y (0..$#{$grid[$x]}) {
+        $sum += grep { $_ } @{$grid[$x][$y]};
+    }
+}
+print "${sum}\n";
