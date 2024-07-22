@@ -1,0 +1,174 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+use Storable qw/dclone/; # Deep copy of data structures
+
+
+our (%destinations, %movements, %original_state, $max_row);
+our %movement_cost = ('A' => 1, 'B' => 10, 'C' => 100, 'D' => 1000);
+
+
+# Trivial functions with obvious names
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+sub min { return (sort { $a <=> $b } @_)[0]; }
+
+# ------------------------------------------------------------------------------
+#  Check if the path between 2 coordinates is clear
+# ------------------------------------------------------------------------------
+sub clear {
+    my ($state, $row1, $col1, $row2, $col2) = @_;
+
+    # Count how many amphipods are in the path along row 1
+    my $count = grep { exists $$state{"1-$_"} } &min($col1, $col2)..&max($col1,$col2);
+    # Now count how many are in the column
+    my $col = $row1 > $row2 ? $col1 : $col2;
+    $count += grep { exists $$state{"$_-${col}"} } 2..&max($row1, $row2);
+
+    return $count == 1;
+}
+
+# ------------------------------------------------------------------------------
+#  Examine a state and test whether it represents a solved state
+# ------------------------------------------------------------------------------
+sub done {
+    my ($state) = @_;
+    # Get a count of amphipods in the correct place
+    my $correct = grep { m/-$destinations{ $$state{$_}[0] }$/ } keys %$state;
+    # Compare the number of correct with total amphipods
+    return $correct == scalar keys %$state;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Convert a state into a string
+# ------------------------------------------------------------------------------
+sub stringify {
+    my ($state) = @_;
+    # This preserves the number of moves each amphipod has made
+    #join(';', map { join(',', $_, @{$$state{$_}}) } sort keys %$state);
+
+    # This version is more compact but does not preserve number of moves
+    my (@list) = sort keys %movements;
+    my %hash;
+    @hash{@list} = (0..$#list);
+
+    my $return = '.' x @list;
+    foreach my $position (keys %$state) {
+        my $letter = $$state{$position}[0];
+        substr $return, $hash{$position}, 1, $letter;
+    }
+    return $return;
+}
+
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Read input
+{   my $row = 0;
+    foreach (map { chomp; $_ } <>) {
+        next if m/^[ #]*$/;     # Skip border lines
+        $row++;
+        while (m/([.A-Z])/g) {
+            my $key = join('-', $row, pos()-1);
+            $movements{$key} = [];
+            $original_state{$key} = [$1, 0] if $1 ne '.';
+        }
+    }
+    $max_row = $row;            # Save the highest row that was found
+}
+
+# Look at row 2 to figure out which columns have side rooms, then remove those
+# from the possible movements in row 1 since we cannot stop in those positions.
+delete @movements{map { s/^2/1/; $_ } grep { m/^2-/ } keys %movements};
+
+# Build a mapping from each letter to it's destination column
+{   my @cols = sort { $a <=> $b } map { s/^2-// ? $_ : () } keys %movements;
+    # Note that this will fail if there are more than 26 destination columns
+    @destinations{ ('A'..'Z')[0..$#cols] } = @cols;
+}
+
+# Optimize the original state by assigning a movement of 2 to amphipods already
+# in the correct position, which will prevent them trying to move.
+{   my ($row_min, $row_max) = (sort { $a <=> $b }
+                               map { s/^(\d+)-.*$/$1/; $_ }
+                               keys %original_state)[0, -1];
+    while (my ($letter, $column) = each %destinations) {
+        for (my $row = $row_max; $row >= $row_min; $row--) {
+            last if $original_state{"${row}-${column}"}[0] ne $letter;
+            $original_state{"${row}-${column}"}[1] = 2;
+        }
+    }
+}
+
+# Populate the values in %movements
+foreach my $col1 (sort { $a <=> $b }
+                  map { s/^1-// ? $_ : () }
+                  keys %movements) {
+    foreach my $other (sort { $$a[0] <=> $$b[0] or $$a[1] <=> $$b[1] }
+                       map { m/^1-/ ? () : [ split /-/ ] }
+                       keys %movements) {
+        my ($rowN, $colN) = @$other;
+        my $distance = $rowN - 1 + abs($col1 - $colN);
+        push @{$movements{"1-${col1}"}}, [ "${rowN}-${colN}", $distance ];
+        push @{$movements{"${rowN}-${colN}"}}, [ "1-${col1}", $distance ];
+    }
+}
+
+# Let's solve this thing
+my $solution = ~0;                      # Assume infinity
+my $pq = Array::Heap::PriorityQueue::Numeric->new();
+$pq->add([ \%original_state, 0 ], 0);   # An item is state + cost
+my %seen;
+while (my $entry = $pq->get()) {
+    my ($state, $cost) = @$entry;
+    next if $seen{&stringify($state)}++; # We've been here before
+    next if $cost >= $solution;         # No point in continuing
+    if (&done($state)) {                # Check if we solved it
+        $solution = $cost if $cost < $solution;
+        next;
+    }
+    foreach my $src (keys %$state) {    # Examine each amphipod
+        my ($src_row, $src_col) = split /-/, $src;
+        my ($letter, $movement_count) = @{$$state{$src}};
+	# Skip if this amphipod has already moved too much
+	next if $movement_count >= 2;
+        # Skip if this amphipod is already in the correct position
+        next if ($src_col == $destinations{$letter} and
+                 $max_row - $src_row + 1 == (grep { $$state{$_}[0] eq $letter }
+                                             grep { exists $$state{$_} }
+                                             map { "${_}-${src_col}" }
+                                             $src_row..$max_row));
+        # Examine each movement this amphipod could make
+        foreach my $movement (@{$movements{$src}}) {
+            my ($dst, $dist) = @$movement;
+            my ($dst_row, $dst_col) = split /-/, $dst;
+	    # Figure out cost of this movement and bail out if too expensive
+            my $new_cost = $cost + $dist * $movement_cost{$letter};
+	    next if $new_cost >= $solution;
+	    # Extra checks if moving into a room
+            if ($dst_row > 1) {
+                # Amphipods can't move into a room that isn't theirs
+                next if $dst_col != $destinations{$letter};
+                # Amphipods cannot move into their room if any spaces below do
+                # not already contain the correct type of amphipod
+                next if (grep { ((not exists $$state{$_}) or
+				 $$state{$_}[0] ne $letter) }
+                         map { "${_}-${dst_col}" }
+                         $dst_row+1..$max_row);
+            }
+            # Make sure there aren't any amphipods along the path
+            next if not &clear($state, $src_row, $src_col, $dst_row, $dst_col);
+            # Create a new state and push it on the queue
+            my $new_state = dclone($state);
+            delete $$new_state{$src};
+            $$new_state{$dst} = [$letter, $movement_count + 1];
+            $pq->add([ $new_state, $new_cost ], $new_cost);
+        }
+    }
+}
+print "${solution}\n";
