@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @grid = map { chomp; [ split // ] } <>;
+our ($max_row, $max_col) = (scalar @grid, scalar @{$grid[0]});
+
+# Print out the grid (for debugging/visualization)
+sub printer {
+    my ($g) = @_;
+    print map { join '', @$_, "\n" } @$g;
+    print "\n";
+}
+
+my ($moves, $time) = (0) x 2;
+do {
+    $moves = 0;
+    $time++;
+
+    # Move east
+    my @grid2 = ();
+    for (my $row = 0; $row < $max_row; $row++) {
+        my @new_row = ();
+        for (my $col = $max_col - 1; $col >= 0; $col--) {
+            my $east_col = ($col + 1) % $max_col;
+            if ($grid[$row][$col] eq '>' and $grid[$row][$east_col] eq '.') {
+                $grid2[$row][$col] = '.';
+                $grid2[$row][$east_col] = '>';
+                $moves++;
+            } else {
+                $grid2[$row][$col] //= $grid[$row][$col];
+            }
+        }
+    }
+    @grid = @grid2;
+
+    # Move south
+    @grid2 = ();
+    for (my $col = 0; $col < $max_col; $col++) {
+        for (my $row = $max_row - 1; $row >= 0; $row--) {
+            my $south_row = ($row + 1) % $max_row;
+            if ($grid[$row][$col] eq 'v' and $grid[$south_row][$col] eq '.') {
+                $grid2[$row][$col] = '.';
+                $grid2[$south_row][$col] = 'v';
+                $moves++;
+            } else {
+                $grid2[$row][$col] //= $grid[$row][$col];
+            }
+        }
+    }
+    @grid = @grid2;
+
+#    &printer(\@grid);
+} until $moves == 0;
+
+print "${time}\n";
