@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# I don't understand how this works. Algorithm was shamelessly stolen from one
+# on the solutions board, original in Python and then translated to Perl.
+
+our @commands = map { [ split /\s+/ ] } map { chomp; $_; } <>;
+our @input = (9) x 14;
+
+our @stack = ();
+foreach my $i (0..13) {
+    my ($div, $chk, $add) = map { $commands[$i * 18 + $_][-1] } (4, 5, 15);
+    if ($div == 1) {
+        push @stack, [ $i, $add ];
+    } elsif ($div == 26) {
+        my $j;
+        ($j, $add) = @{ pop @stack };
+        $input[$i] = $input[$j] + $add + $chk;
+        if ($input[$i] > 9) {
+            $input[$j] -= $input[$i] - 9;
+            $input[$i] = 9;
+        }
+        if ($input[$i] < 1) {
+            $input[$j] += 1 - $input[$i];
+            $input[$i] = 1;
+        }
+    } else { die; }
+}
+
+print join('', @input), "\n";
