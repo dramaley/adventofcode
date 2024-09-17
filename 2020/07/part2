@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %rules;
+while (<>) {
+    my ($bag, $contains) = m/^(.+) bags contain (.+)\.$/;
+    $rules{$bag} = { map { /^(\d+) (.*) bags?$/ ? ($2, $1) : () } split /, /, $contains };
+}
+
+our $count = -1;    # Compensate for counting the shiny gold bag
+our %queue = ('shiny gold' => 1);
+while (%queue) {
+    my $key = (keys %queue)[0];
+    my $val = $queue{$key};
+    delete $queue{$key};
+    $count += $val;
+    while (my ($new_key, $new_val) = each %{$rules{$key}}) {
+        $queue{$new_key} += $val * $new_val;
+    }
+}
+print "${count}\n";

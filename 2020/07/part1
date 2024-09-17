@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %rules;
+while (<>) {
+    my ($bag, $contains) = m/^(.+) bags contain (.+)\.$/;
+    $rules{$bag} = [ map { /^\d+ (.*) bags?$/ ? $1 : () } split /, /, $contains ];
+}
+
+# Flip the rules around to make it easier
+our %invert;
+foreach my $key (keys %rules) {
+    foreach my $val (@{$rules{$key}}) {
+        push @{$invert{$val}}, $key;
+    }
+}
+
+our %have;
+our @queue = ('shiny gold');
+while (@queue) {
+    my $this = pop @queue;
+    next if $have{$this}++;
+    push @queue, @{$invert{$this}} if exists $invert{$this};
+}
+
+delete $have{'shiny gold'};             # Avoid recursion
+print scalar(keys %have), "\n";
