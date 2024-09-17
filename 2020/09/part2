@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+#our $length = 5;    # sample
+our $length = 25;   # real input
+
+our @input = map { $_ + 0 } <>;
+
+sub check_sum {
+    my ($ptr) = @_;
+    for (my $i = $ptr - $length; $i < $ptr - 1; $i++) {
+        for (my $j = $i + 1; $j < $ptr; $j++) {
+            return 1 if $input[$i] + $input[$j] == $input[$ptr];
+        }
+    }
+    return 0;
+}
+
+sub min { return (sort { $a <=> $b } @_)[0]; }
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+
+# Find pointer to the invalid number
+my $pointer = $length;
+while ($pointer < @input) {
+    last if not &check_sum($pointer);
+    $pointer++;
+}
+
+# Find the contiguous set of numbers that sum to the invalid number
+my $invalid = $input[$pointer];
+my ($ptr_min, $ptr_max);
+{
+  OUTER:
+    for ($ptr_min = 0; $ptr_min < $#input; $ptr_min++) {
+        my $sum = $input[$ptr_min];
+        for ($ptr_max = $ptr_min + 1; $ptr_max < @input; $ptr_max++) {
+            $sum += $input[$ptr_max];
+            last OUTER if $sum == $invalid;
+            last if $sum > $invalid;
+        }
+    }
+}
+
+# Find the "encryption weakness"
+my $weakness = &min(@input[$ptr_min..$ptr_max]) + &max(@input[$ptr_min..$ptr_max]);
+print "${weakness}\n";

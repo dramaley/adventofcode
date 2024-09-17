@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+#our $length = 5;    # sample
+our $length = 25;   # real input
+
+our @data;
+# Read the preamble
+while (@data < $length) {
+    my $line = <>;
+    $line += 0;         # Convert from string to integer
+    push @data, $line;
+}
+
+sub check_sum {
+    my ($aref, $goal) = @_;
+    for (my $i = 0; $i < $#$aref; $i++) {
+        for (my $j = $i; $j < @$aref; $j++) {
+            return 1 if $$aref[$i] + $$aref[$j] == $goal;
+        }
+    }
+    return 0;
+}
+
+while (<>) {
+    my $next = $_ + 0;
+    if (&check_sum(\@data, $next)) {
+        shift @data;
+        push @data, $next;
+    } else {
+        print "${next}\n";
+        last;
+    }
+}
