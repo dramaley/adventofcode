@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @grid = map { chomp; [ split // ] } <>;
+
+my $trees = 0;
+my ($row, $col) = (0, 0);
+while ($row < @grid) {
+    $trees++ if $grid[$row][$col] eq '#';
+    $row++;
+    $col += 3; $col %= scalar @{$grid[0]};
+}
+print "${trees}\n";

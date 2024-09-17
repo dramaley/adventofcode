@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my @seats;
+while (<>) {
+    chomp;
+    tr/FBLR/0101/;
+    push @seats, oct("0b$_");
+}
+@seats = sort { $a <=> $b } @seats;
+
+# Find a gap
+for (my $i = 0; $i < $#seats; $i++) {
+    print $seats[$i] + 1, "\n" if $seats[$i] + 1 != $seats[$i + 1];
+}

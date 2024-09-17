@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $valid = 0;
+$/ = "\n\n";
+while (<>) {
+    my %hash = split /[: \n]/;
+    delete $hash{'cid'};
+    $valid++ if scalar(keys %hash) == 7;
+}
+print "${valid}\n";

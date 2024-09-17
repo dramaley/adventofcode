@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $highest = 0;
+while (<>) {
+    chomp;
+    tr/FBLR/0101/;
+    my $seat_id = oct("0b$_");
+    $highest = $seat_id if $seat_id > $highest;
+}
+print "${highest}\n";

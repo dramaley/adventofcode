@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @input = map { chomp; $_ } <>;
+
+for (my $i = 0; $i < $#input-1; $i++) {
+    for (my $j = $i + 1; $j < $#input; $j++) {
+        for (my $k = $j + 1; $k < @input; $k++) {
+            if ($input[$i] + $input[$j] + $input[$k] == 2020) {
+                print $input[$i] * $input[$j] * $input[$k], "\n";
+                exit;
+            }
+        }
+    }
+}

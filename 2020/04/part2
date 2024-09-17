@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+sub invalid_byr {
+    return 1 if $_[0] !~ /^\d{4}$/ or $_[0] < 1920 or $_[0] > 2002;
+}
+
+sub invalid_iyr {
+    return 1 if $_[0] !~ /^\d{4}$/ or $_[0] < 2010 or $_[0] > 2020;
+}
+
+sub invalid_eyr {
+    return 1 if $_[0] !~ /^\d{4}$/ or $_[0] < 2020 or $_[0] > 2030;
+}
+
+sub invalid_hgt {
+    my ($num, $unit) = ($_[0] =~ m/^(\d+)(cm|in)$/);
+    return 1 if not $unit or $unit !~ /^(cm|in)$/;
+    return 1 if $unit eq 'cm' and ($num < 150 or $num > 193);
+    return 1 if $unit eq 'in' and ($num < 59 or $num > 76);
+}
+
+sub invalid_hcl {
+    return 1 if $_[0] !~ /^#[[:xdigit:]]{6}$/;
+}
+
+sub invalid_ecl {
+    return 1 if $_[0] !~ /^(amb|blu|brn|gry|grn|hzl|oth)$/;
+}
+
+sub invalid_pid {
+    return 1 if $_[0] !~ /^\d{9}$/;
+}
+
+my $valid = 0;
+$/ = "\n\n";                            # Cheap parser, part 1
+while (<>) {
+    my %hash = split /[: \n]/;          # Cheap parser, part 2
+    delete $hash{'cid'};                # Ignore
+    next if scalar(keys %hash) != 7;    # Insufficient data
+    next if &invalid_byr($hash{'byr'});
+    next if &invalid_iyr($hash{'iyr'});
+    next if &invalid_eyr($hash{'eyr'});
+    next if &invalid_hgt($hash{'hgt'});
+    next if &invalid_hcl($hash{'hcl'});
+    next if &invalid_ecl($hash{'ecl'});
+    next if &invalid_pid($hash{'pid'});
+
+    $valid++
+}
+print "${valid}\n";

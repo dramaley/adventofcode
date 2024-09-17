@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $count = 0;
+while (<>) {
+    my ($pos1, $pos2, $letter, $pass) = m/^(\d+)-(\d+) (\w): (\w+)$/;
+    $count++ if (substr($pass, $pos1 - 1, 1) eq $letter xor
+                 substr($pass, $pos2 - 1, 1) eq $letter);
+}
+print "${count}\n";

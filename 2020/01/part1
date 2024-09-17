@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @input = map { chomp; $_ } <>;
+
+for (my $i = 0; $i < $#input; $i++) {
+    for (my $j = $i + 1; $j < @input; $j++) {
+        if ($input[$i] + $input[$j] == 2020) {
+            print $input[$i] * $input[$j], "\n";
+            exit;
+        }
+    }
+}
