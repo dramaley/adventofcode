@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $sum = 0;
+$/ = "\n\n";                            # Cheap parser
+while (<>) {
+    tr/[a-z]//cd;
+    my %hash;
+    @hash{split //} = ();
+    $sum += scalar(keys %hash);
+}
+print "${sum}\n";

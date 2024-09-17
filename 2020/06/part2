@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $sum = 0;
+$/ = "\n\n";                            # Cheap parser
+while (<>) {
+    s/\n+$//;
+    my $person_count = 0;
+    my %hash;
+    foreach (split /\n/) {
+        $person_count++;
+        $hash{$_}++ foreach split //;
+    }
+    $sum += scalar(grep { $hash{$_} eq $person_count } keys %hash);
+}
+print "${sum}\n";
