@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @input = map { chomp; [ split / / ] } <>;
+
+our $accumulator = 0;
+our $inst_number = 0;
+
+my %seen;
+while () {
+    my ($inst, $num) = @{$input[$inst_number]};
+    last if $seen{$inst_number}++;
+    for ($inst) {
+        /acc/ and do { $accumulator += $num; $inst_number++; };
+        /jmp/ and do { $inst_number += $num; };
+        /nop/ and do { $inst_number++; };
+    }
+}
+print "${accumulator}\n";

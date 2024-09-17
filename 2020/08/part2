@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Storable qw/dclone/; # Deep copy of data structures
+
+our @input = map { chomp; [ split / / ] } <>;
+
+# Returns undefined if the virtual machine got caught in a loop, else the
+# final accumulator value if the machine ran successfully
+sub virtual_machine {
+    my ($code) = @_;
+
+    my $accumulator = 0;
+    my $inst_number = 0;
+
+    my %seen;
+    while ($inst_number < @$code) {
+        my ($inst, $num) = @{$$code[$inst_number]};
+        return undef if $seen{$inst_number}++;  # Loop detected
+        for ($inst) {
+            /acc/ and do { $accumulator += $num; $inst_number++; };
+            /jmp/ and do { $inst_number += $num; };
+            /nop/ and do { $inst_number++; };
+        }
+    }
+    return $accumulator;
+}
+
+for (my $i = 0; $i < @input; $i++) {    # Loop over all the instructions
+    next if $input[$i] eq 'acc';        # No change, so skip it
+    my $code = dclone(\@input);         # Copy the code
+    $$code[$i][0] = ($$code[$i][0] eq 'nop' ? 'jmp' : 'nop'); # Flip this instruction
+    my $result = &virtual_machine($code); # Test it
+    if (defined $result) {
+        print "${result}\n";
+        last;
+    }
+}
