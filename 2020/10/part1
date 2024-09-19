@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @input = sort { $a <=> $b } map { chomp; $_ } <>;
+unshift @input, 0;              # Source
+push @input, $input[-1] + 3;    # Built-in adapter
+
+my %steps;
+$steps{$input[$_+1]-$input[$_]}++ foreach 0..$#input-1;
+
+print $steps{1} * $steps{3}, "\n";
