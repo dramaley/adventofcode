@@ -20,11 +20,10 @@ our @diffs = map { $input[$_+1]-$input[$_] } 0..$#input-1;
 # into a number of smaller chains consisting of just the 1's. All we really
 # need from there is the length of each sub-chain. And can ignore single links
 # since they cannot increase the total path count.
-our @chain_lengths = ( grep { $_ > 1 }         # Discard single links
-                       map { scalar @$_ }      # Length of this sub-chain
-                       map { [ split /-/ ] }   # String back to list
-                       split /-(?:3(?:-|$))+/, # Split on 3's
-                       join('-', @diffs) );    # List to string to use split
+our @chain_lengths = ( grep { $_ > 1 }          # Discard single-links
+                       map { length $_ }        # Length of this sub-chain
+                       split /3+/,              # Split on 3's
+                       join('', @diffs) );      # List to string to use split
 
 # Relate length of a sub-chain to the number of possible paths through it.
 # These relations were found by mapping them manually, shown in the comments.
