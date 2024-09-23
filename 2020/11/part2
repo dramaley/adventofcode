@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Storable qw/dclone/; # Deep copy of data structures
+
+# Read the grid
+our @grid = map { chomp; [ split(//) ]; } <>;
+
+# Relative coordinates of adjacent seats
+our @adjacent = ([-1, -1], [-1, 0], [-1, 1],    # Previous row
+                 [ 0, -1],          [ 0, 1],    # Same row
+                 [ 1, -1], [ 1, 0], [ 1, 1]);   # Next row
+
+while () {
+    my @new_grid = @{ dclone(\@grid) };
+    my $changes = 0;
+    for (my $col = 0; $col < @grid; $col++) {
+        for (my $row = 0; $row < @{$grid[0]}; $row++) {
+            # Look around and count occupied seats
+            my $occupied = 0;
+            foreach (@adjacent) {
+                my ($col_delta, $row_delta) = @$_;
+                my $scale = 1;
+                while () {
+                    # What col, row to look at
+                    my $col_look = $col + $col_delta * $scale;
+                    my $row_look = $row + $row_delta * $scale;
+                    last if ($col_look < 0 or $col_look > $#grid or
+                             $row_look < 0 or $row_look > $#{$grid[0]});
+                    if ($grid[$col_look][$row_look] eq '#') {
+                        $occupied++;
+                        last;
+                    } elsif ($grid[$col_look][$row_look] eq 'L') {
+                        last;
+                    }
+                    $scale++;
+                }
+            }
+
+            if ($grid[$col][$row] eq 'L' and $occupied == 0) {
+                $new_grid[$col][$row] = '#';
+                $changes++;
+            } elsif ($grid[$col][$row] eq '#' and $occupied >= 5) {
+                $new_grid[$col][$row] = 'L';
+                $changes++;
+            }
+        }
+    }
+
+    @grid = @{ dclone(\@new_grid) };
+    last if $changes == 0;
+}
+
+my $occupied = grep { $_ eq '#' } map { @$_ } @grid;
+print "$occupied\n";

@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Storable qw/dclone/; # Deep copy of data structures
+
+# Read the grid with padding columns
+our @grid = map { chomp; [ '.', split(//), '.' ]; } <>;
+# Add padding rows
+{   my @padding = ('.') x @{$grid[0]};
+    unshift @grid, [ @padding ];
+    push @grid, [ @padding ];
+}
+
+# Relative coordinates of adjacent seats
+our @adjacent = ([-1, -1], [-1, 0], [-1, 1],    # Previous row
+                 [ 0, -1],          [ 0, 1],    # Same row
+                 [ 1, -1], [ 1, 0], [ 1, 1]);   # Next row
+
+while () {
+    my @new_grid = @{ dclone(\@grid) };
+    my $changes = 0;
+    for (my $col = 1; $col < $#grid; $col++) {
+        for (my $row = 1; $row < $#{$grid[0]}; $row++) {
+            my $occupied = (grep { $_ eq '#' }
+                            map { $grid[ $col + $$_[0] ][ $row + $$_[1] ] }
+                            @adjacent);
+            if ($grid[$col][$row] eq 'L' and $occupied == 0) {
+                $new_grid[$col][$row] = '#';
+                $changes++;
+            } elsif ($grid[$col][$row] eq '#' and $occupied >= 4) {
+                $new_grid[$col][$row] = 'L';
+                $changes++;
+            }
+        }
+    }
+
+    @grid = @{ dclone(\@new_grid) };
+    last if $changes == 0;
+}
+
+my $occupied = grep { $_ eq '#' } map { @$_ } @grid;
+print "$occupied\n";
