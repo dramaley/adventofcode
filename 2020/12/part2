@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Ship position; 0 on the north-south axis, 0 on east-west
+our ($ns, $ew) = (0, 0);
+# Waypoint position relative to the ship
+our ($wp_ns, $wp_ew) = (1, 10);
+
+# Rotate the waypoint clockwise
+sub rotate {
+    my ($rot) = @_;
+    if ($rot == 90) {
+        ($wp_ns, $wp_ew) = (-$wp_ew, $wp_ns);
+    } elsif ($rot == 180) {
+        ($wp_ns, $wp_ew) = (-$wp_ns, -$wp_ew);
+    } elsif ($rot == 270) {
+        ($wp_ns, $wp_ew) = ($wp_ew, -$wp_ns);
+    } else {
+        die "Unexpected rotation: ${rot}";
+    }
+}
+
+foreach my $cmd (map { chomp; $_ } <>) {
+    $cmd =~ m/^([NSEWLRF])(\d+)$/ or die "Unrecognized command: ${cmd}";
+    my ($letter, $number) = ($1, $2);
+
+    for ($letter) {
+        /N/ and do { $wp_ns += $number; last; };
+        /S/ and do { $wp_ns -= $number; last; };
+        /E/ and do { $wp_ew += $number; last; };
+        /W/ and do { $wp_ew -= $number; last; };
+        /L/ and do { &rotate(360 - $number); last; };
+        /R/ and do { &rotate($number);       last; };
+        /F/ and do { $ns += $wp_ns * $number; $ew += $wp_ew * $number; last; };
+        die "Bad letter: $_";
+    }
+}
+
+print abs($ns) + abs($ew), "\n";

@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Initial position; 0 on the north-south axis, 0 on east-west, 90° heading
+our ($ns, $ew, $rot) = (0, 0, 90);
+
+foreach my $cmd (map { chomp; $_ } <>) {
+    $cmd =~ m/^([NSEWLRF])(\d+)$/ or die "Unrecognized command: ${cmd}";
+    my ($letter, $number) = ($1, $2);
+
+    for ($letter) {
+        /N/ and do { $ns += $number; last; };
+        /S/ and do { $ns -= $number; last; };
+        /E/ and do { $ew += $number; last; };
+        /W/ and do { $ew -= $number; last; };
+        /L/ and do { $rot -= $number; last; };
+        /R/ and do { $rot += $number; last; };
+        /F/ and do {
+            my $var = $rot % 180 ? 'ew' : 'ns'; # Which variable to modify
+            my $sign = 2 * ($rot < 135) - 1;    # Add or subtract
+            no strict 'refs';
+            $$var = $$var + $sign * $number;
+            last;
+        };
+        die "Bad letter: $_";
+    }
+
+    $rot += 360 while $rot < 0;
+    $rot -= 360 while $rot >= 360;
+}
+
+print abs($ns) + abs($ew), "\n";
