@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Math::Utils qw/lcm/;
+
+{ my $discard = <>; }   # Discard the first line of input
+our @buses;
+{   my $i = 0;
+    foreach (split /,/, <>) {
+#        $buses{$i} = int $_ if m/\d/;
+        push @buses, [$i, int $_] if m/\d/;
+        $i++;
+    }
+}
+
+my ($timestamp, $period) = ($buses[0][1]) x 2;
+shift @buses;
+foreach (@buses) {
+    my ($index, $bus_id) = @$_;
+    $timestamp += $period while ($timestamp + $index) % $bus_id != 0;
+    $period = lcm($period, $bus_id);
+}
+print "${timestamp}\n";

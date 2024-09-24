@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $earliest = <>;
+$earliest += 0;         # Convert to integer
+our (@buses) = map { int $_ } grep { /\d/ } split /,/, <>;
+
+my %answers;
+foreach my $bus (@buses) {
+    my $t = $bus * int($earliest / $bus);
+    $t += $bus if $t < $earliest;
+    $answers{$bus} = $t;
+}
+
+my $fastest_bus = (sort { $answers{$a} <=> $answers{$b} } keys %answers)[0];
+print $fastest_bus * ($answers{$fastest_bus} - $earliest), "\n";
