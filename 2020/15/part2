@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @list = map { int } map { chomp; split /,/ } <>;
+# Associate each element in @list with it's indices.
+our %indices;
+push @{$indices{$list[$_]}}, $_ foreach 0..$#list;
+
+while (@list < 30000000) {
+    my $last = $list[-1];
+    my $next = (@{ $indices{$last} } == 1) ? 0 : $indices{$last}[-1] - $indices{$last}[-2];
+    push @list, $next;
+    push @{$indices{$next}}, $#list;
+    # Keep memory usage under control (not needed for such a small problem)
+    #shift @{$indices{$next}} if @{$indices{$next}} > 2;
+}
+
+print $list[-1], "\n";
