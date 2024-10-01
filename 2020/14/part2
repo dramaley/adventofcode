@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings qw/all -portable/; # Don't whine about numbers greater than 2^32
+
+our %mem;
+our (@mask_floater) = ({'and' => ~0, 'or' => 0});
+
+sub parse_mask {
+    my ($input) = @_;
+
+    my @indices;
+    push @indices, pos($input)-1 while $input =~ m/X/g;
+
+    @mask_floater = ();
+    for (my $i = 0; $i < 2**@indices; $i++) {
+        # "mask" will force "1" bits in the mask to be 1 in the address
+        (my $mask = $input) =~ tr/X/0/;
+        # The "and" and "or" will force "X" bits in the mask to be whatever
+        # we need them to be
+        my $and = '1' x 36;
+        my $or = '0' x 36;
+
+        my $format = sprintf('%%0%db', scalar @indices);
+        my (@bits) = split //, sprintf($format, $i);
+        foreach (my $j = 0; $j < @indices; $j++) {
+            substr($and, $indices[$j], 1) = $bits[$j];
+            substr($or,  $indices[$j], 1) = $bits[$j];
+        }
+        push @mask_floater, { 'mask' => oct "0b${mask}",
+                              'and'  => oct "0b${and}",
+                              'or'   => oct "0b${or}" };
+    }
+}
+
+foreach (map { chomp; $_ } <>) {
+    my ($cmd, $addr, $val) = m/^(mask|mem\[(\d+)\]) = ([X\d]+)$/;
+    if ($cmd eq 'mask') {
+        &parse_mask($val);
+    } else {
+        foreach my $mask (@mask_floater) {
+            my ($floater_mask, $floater_and, $floater_or) = @$mask{'mask', 'and', 'or'};
+            my $new_addr = (($addr | $floater_mask) & $floater_and) | $floater_or;
+            $mem{$new_addr} = $val;
+        }
+    }
+}
+
+my $sum = 0;
+$sum += $_ foreach values %mem;
+print "${sum}\n";

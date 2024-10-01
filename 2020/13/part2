@@ -9,7 +9,6 @@ use Math::Utils qw/lcm/;
 our @buses;
 {   my $i = 0;
     foreach (split /,/, <>) {
-#        $buses{$i} = int $_ if m/\d/;
         push @buses, [$i, int $_] if m/\d/;
         $i++;
     }

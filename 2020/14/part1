@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %mem;
+our ($mask_and, $mask_or) = (~0, 0);
+
+sub parse_mask {
+    my ($input) = @_;
+    ($mask_and = $input) =~ tr/X/1/;
+    ($mask_or = $input) =~ tr/X/0/;
+    # Convert the new masks from strings to integers
+    no warnings 'portable';     # Don't whine about numbers greater than 2^32
+    $mask_and = oct "0b${mask_and}";
+    $mask_or = oct "0b${mask_or}";
+}
+
+foreach (map { chomp; $_ } <>) {
+    my ($cmd, $addr, $val) = m/^(mask|mem\[(\d+)\]) = ([X\d]+)$/;
+    if ($cmd eq 'mask') {
+        &parse_mask($val);
+    } else {
+        $mem{$addr} = $val & $mask_and | $mask_or;
+    }
+}
+
+my $sum = 0;
+$sum += $_ foreach values %mem;
+print "${sum}\n";
