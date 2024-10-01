@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %valid;
+# Read the valid ranges
+while (<>) {
+    last if m/^$/;      # Stop on empty line
+    foreach (m/\d+-\d+/g) {
+        my ($lower, $upper) = split /-/;
+        @valid{$lower..$upper} = ();
+    }
+}
+
+# Skip "your ticket" for now
+while (<>) {
+    last if m/^$/;
+}
+
+# Process the nearby tickets
+my $invalid_sum = 0;
+while (<>) {
+    next if not /^\d/;  # Skip the actual "nearby tickets" line
+    chomp;
+    $invalid_sum += $_ foreach grep { not exists $valid{$_} } split /,/;
+}
+print "${invalid_sum}\n";

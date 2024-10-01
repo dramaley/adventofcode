@@ -1,0 +1,78 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (%valid, %fields);
+
+# Read the valid ranges
+while (<>) {
+    last if m/^$/;      # Stop on empty line
+    my ($field) = m/^([^:]+):/;
+    foreach (m/\d+-\d+/g) {
+        my ($lower, $upper) = split /-/;
+        # Collect all valid values in a single hash
+        @valid{$lower..$upper} = ();
+        # Associate particular fields with their valid ranges
+        @{$fields{$field}}{$lower..$upper} = ();
+    }
+}
+
+# Read our ticket
+our @my_ticket;
+while (<>) {
+    last if m/^$/;      # Stop on empty line
+    next if not /^\d/;  # Skip the "your ticket" header
+    chomp;
+    (@my_ticket) = split /,/;
+}
+
+# For each ticket field, make a list of possible indices. For now, assume all
+# fields can be any of the possible indices.
+our %possibilities;
+@{$possibilities{$_}}{0..$#my_ticket} = () foreach keys %fields;
+
+# Process the nearby tickets
+while (<>) {
+    next if not /^\d/;  # Skip the "nearby tickets" header
+    chomp;
+    my (@numbers) = split /,/;
+    next if grep { not exists $valid{$_} } @numbers;    # Skip invalid tickets
+
+    foreach my $i (0..$#numbers) {
+        # Exclude out-of-range numbers from the possibilities
+        delete $possibilities{$_}{$i} foreach
+            grep { not exists $fields{$_}{ $numbers[$i] } } keys %fields;
+    }
+}
+
+# Figure out which fields' have what index
+our (%definite);
+my $removed = 1;
+while ($removed) {
+    $removed = 0;
+    # Loop over fields with only a single sub key left after previous exclusions
+    foreach my $single (grep { (keys %{$possibilities{$_}}) == 1  }
+                        keys %possibilities) {
+        # Get the single sub key
+        my ($sub_key) = keys %{$possibilities{$single}};
+
+        # We know this field and sub key are definitely associated
+        $definite{$single} = $sub_key;
+        delete $possibilities{$single};
+
+        # Exclude that sub key from all other possibilities
+        foreach my $field (grep { exists $possibilities{$_}{$sub_key} }
+                           keys %possibilities) {
+            delete $possibilities{$field}{$sub_key};
+            $removed++;
+        }
+    }
+}
+
+# Find the final answer
+our $product = 1;
+$product *= $my_ticket[$definite{$_}]
+    foreach grep { /^departure/ } keys %definite;
+print "${product}\n";
