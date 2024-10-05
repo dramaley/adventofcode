@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Solve the given sub-expression. Assumes no internal parentheses.
+sub math {
+    my ($arg) = @_;
+    $arg =~ tr/()//d;
+    1 while ($arg =~ s/(\d+ \+ \d+)/${\eval($1)}/);
+    return eval $arg;
+}
+
+my $sum = 0;
+foreach my $expr (map { chomp; "($_)" } <>) {
+    # Replace parenthesized expressions with their value
+    1 while ($expr =~ s/(\([^()]+\))/${\&math($1)}/);
+    $sum += $expr;
+}
+print "${sum}\n";
