@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read the rules
+my (%resolved, %unresolved);
+while (<>) {
+    last if m/^$/;                      # Stop on empty line
+    tr/0-9a-z |//cd;                    # Discard cruft
+    my ($key, @vals) = split / /;
+    if (@vals == 1 and $vals[0] =~ m/[a-z]/) {
+        $resolved{$key} = $vals[0];     # Individual letters are fully resolved
+    } else {
+        $unresolved{$key} = \@vals;     # Anything else is unresolved
+    }
+}
+
+# Resolve the unknown rules
+while (%unresolved) {
+    foreach my $key (keys %unresolved) {
+        # Fill in references that resolve
+        for (my $i = 0; $i < @{$unresolved{$key}}; $i++) {
+            my $rkey = $unresolved{$key}[$i];
+            $unresolved{$key}[$i] = $resolved{$rkey}
+                if $rkey =~ m/^\d+$/ and exists $resolved{$rkey};
+        }
+        # Merge resolved parts of the rules
+        my $i = 0;
+        while ($i < $#{$unresolved{$key}}) {
+            # If the current and next items are both non-numeric, merge them
+            if ($unresolved{$key}[$i] !~ m/^\d+$/ and
+                $unresolved{$key}[$i+1] !~ m/^\d+$/) {
+                $unresolved{$key}[$i] .= splice @{$unresolved{$key}}, $i+1, 1;
+            } else {
+                $i++;
+            }
+        }
+        # Mark this key fully resolved, if possible
+        if (@{$unresolved{$key}} == 1 and $unresolved{$key}[0] !~ m/^\d+$/) {
+            $resolved{$key} = "(${unresolved{$key}[0]})";
+            delete $unresolved{$key};
+        }
+    }
+}
+
+# Now pull out our regex
+our $regex = qr/^${resolved{'0'}}$/;
+
+# Check the messages
+my $count = 0;
+while (<>) {
+    $count++ if m/$regex/m;
+}
+
+print "${count}\n";

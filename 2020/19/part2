@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read the rules
+my (%resolved, %unresolved);
+while (<>) {
+    last if m/^$/;                      # Stop on empty line
+    tr/0-9a-z |//cd;                    # Discard cruft
+    my ($key, @vals) = split / /;
+    if (@vals == 1 and $vals[0] =~ m/[a-z]/) {
+        $resolved{$key} = $vals[0];     # Individual letters are fully resolved
+    } else {
+        $unresolved{$key} = \@vals;     # Anything else is unresolved
+    }
+}
+
+# Resolve the unknown rules
+while (%unresolved) {
+    foreach my $key (keys %unresolved) {
+        # Fill in references that resolve
+        for (my $i = 0; $i < @{$unresolved{$key}}; $i++) {
+            my $rkey = $unresolved{$key}[$i];
+            $unresolved{$key}[$i] = $resolved{$rkey}
+                if $rkey =~ m/^\d+$/ and exists $resolved{$rkey};
+        }
+        # Merge resolved parts of the rules
+        my $i = 0;
+        while ($i < $#{$unresolved{$key}}) {
+            # If the current and next items are both non-numeric, merge them
+            if ($unresolved{$key}[$i] !~ m/^\d+$/ and
+                $unresolved{$key}[$i+1] !~ m/^\d+$/) {
+                $unresolved{$key}[$i] .= splice @{$unresolved{$key}}, $i+1, 1;
+            } else {
+                $i++;
+            }
+        }
+        # Mark this key fully resolved, if possible
+        if (@{$unresolved{$key}} == 1 and $unresolved{$key}[0] !~ m/^\d+$/) {
+            if ($key eq '8') {
+                # This one can be repeated, so add a "+".
+                $resolved{$key} = "(${unresolved{$key}[0]})+";
+            } elsif ($key eq '11') {
+                # Kludge alert!
+                # Rule 11 consists of some number of matches of rule 42,
+                # followed by the same number of matches of rule 31.
+                # I don't know how to write a regex that means something like
+                # "A+B{N}", where N is a backreference to the number of matches
+                # of A. So... since the longest pattern we have to match is 96
+                # characters (learned from inspecting the input), and rules 42
+                # and 31 both match strings of 5 characters (10 characters in
+                # total), we know that they can only match a maximum of 9 times.
+                # So, let's just enumerate all possibilities from 1 to 9.
+                # My goodness this is fugly...
+                my $one = $resolved{'42'};
+                my $two = $resolved{'31'};
+                $resolved{$key} = "(${one}${two}|${one}{2}${two}{2}|${one}{3}${two}{3}|${one}{4}${two}{4}|${one}{5}${two}{5}|${one}{6}${two}{6}|${one}{7}${two}{7}|${one}{8}${two}{8}|${one}{9}${two}{9})";
+            } else {
+                $resolved{$key} = "(${unresolved{$key}[0]})";
+            }
+            delete $unresolved{$key};
+        }
+    }
+}
+
+# Now pull out our regex
+our $regex = qr/^${resolved{'0'}}$/;
+
+# Check the messages
+my $count = 0;
+while (<>) {
+    $count++ if m/$regex/m;
+}
+
+print "${count}\n";
