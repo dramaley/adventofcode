@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $cycles = 6;
+our %actives;
+
+# Given a coordinate, return the number of active neighbors
+sub active_neighbors {
+    my ($coordinate) = @_;
+    return scalar (grep { exists $actives{$_} }
+                   grep { $_ ne $coordinate }   # Exclude self
+                   @{ &find_neighbors($coordinate) });
+}
+
+# Given a coordinate, return a list of neighbors (includes the given coordinate)
+sub find_neighbors {
+    my ($coordinate) = @_;
+    my (@components) = (split /,/, $coordinate);
+
+    if ($#components > 0) {
+        my $val = $components[0];
+        return [ map { my $e = $_; map { "${_},${e}" } $val-1..$val+1 }
+                 @{ &find_neighbors(join(',', @components[1..$#components])) } ];
+    } elsif ($#components == 0) {
+        return [ $components[0]-1..$components[0]+1 ];
+    } else {
+        die;
+    }
+    print "\t", join(' ', @components), "\n"; exit;
+}
+
+# Read input. Note that both $. and pos() in this context return coordinates
+# that are 1-indexed, so add "1" for extra dimensions instead of 0, just for
+# consistency. Shifting coordinates by $cycles will ensure there are never
+# negatives, possibly simplifying things later.
+while (<>) {
+    $actives{join(',', map { $_ + $cycles } ($., pos, 1, 1))} = undef while m/#/g;
+}
+
+# Run each cycle
+foreach my $cycle (1..$cycles) {
+    # Get a list of coordinates that need to be scanned
+    my %search;
+    @search{ map { @{&find_neighbors($_)} } keys %actives } = ();
+
+    my %new_actives;
+    foreach my $cube (keys %search) {
+        my $actives = &active_neighbors($cube);
+        $new_actives{$cube} = ()
+            if $actives == 3 or (exists $actives{$cube} and $actives == 2);
+    }
+
+    %actives = %new_actives;
+}
+
+print scalar(%actives), "\n";
