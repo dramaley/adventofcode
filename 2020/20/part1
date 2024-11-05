@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %tiles;
+
+{   my $tile;
+    foreach (map { chomp; $_; } <>) {
+        next if m/^$/;
+        if (m/^Tile (\d+):$/) {
+            $tile = $1;
+            next;
+        }
+        push @{$tiles{$tile}}, [ split // ];
+    }
+}
+
+# Associate edges to tiles
+our (%edges);
+foreach my $tile (keys %tiles) {
+    my @edges;
+    $edges[0] = join('', @{$tiles{$tile}[0]});  # Top
+    $edges[1] = join('', @{$tiles{$tile}[-1]}); # Bottom
+    foreach (@{$tiles{$tile}}) {
+        $edges[2] .= $$_[0];                    # Left
+        $edges[3] .= $$_[-1];                   # Right
+    }
+    # Store edges in both orders for easier matching
+    push @{$edges{$_}}, $tile foreach map { $_, scalar reverse($_) } @edges;
+}
+
+# Discard edges that don't match up to another (these are edges of the puzzle)
+delete @edges{ grep { @{$edges{$_}} == 1 } keys %edges };
+
+# Count how many connections each tile has
+my %connections;
+$connections{$_}++ foreach map { @{$edges{$_}} } keys %edges;
+
+# Corners have only 2 shared edges; aka 4 because edges are stored twice
+my @corners = grep { $connections{$_} == 4 } keys %connections;
+
+my $product = 1;
+$product *= $_ foreach @corners;
+print "${product}\n";

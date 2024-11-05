@@ -1,0 +1,218 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#  Given a reference to a tile, return the appropriate edge (as read either
+#  left-to-right or top-to-bottom, respectively).
+# ------------------------------------------------------------------------------
+sub get_bottom { join('', @{${$_[0]}[-1]}); }
+sub get_left   { join('', map { $$_[0] } @{$_[0]}); }
+sub get_right  { join('', map { $$_[-1] } @{$_[0]}); }
+sub get_top    { join('', @{${$_[0]}[0]}); }
+
+# ------------------------------------------------------------------------------
+#  Given a reference to a tile, mirror it about the horizontal axis
+# ------------------------------------------------------------------------------
+sub mirror {
+    my ($tile) = @_;
+    # With the way matrices are represented, this is really trivial.
+    @$tile = reverse @$tile;
+}
+
+# ------------------------------------------------------------------------------
+#  Given a reference to a tile, a reference to a function that returns an edge,
+#  and what that edge should look like, perform rotations or mirrors to orient
+#  the tile so it matches.
+# ------------------------------------------------------------------------------
+sub orient {
+    my ($tile, $edge_func, $edge) = @_;
+    # No reorientation necessary.
+    return if &$edge_func($tile) eq $edge;
+    # Try rotating 3 times, mirroring, then rotating 3 more times.
+    foreach my $oper_func ((\&rotate) x 3, \&mirror, (\&rotate) x 3) {
+        &$oper_func($tile);
+        return if &$edge_func($tile) eq $edge;
+    }
+    die 'Unable to find correct orientation for tile';
+}
+
+# ------------------------------------------------------------------------------
+#  Given a reference to a square tile, rotate it 90° clockwise.
+# ------------------------------------------------------------------------------
+sub rotate {
+    my ($tile) = @_;
+    my $size = $#$tile;
+    for (my $row = 0; $row < ($size/2); $row++) {
+        for (my $col = $row; $col < ($size-$row); $col++) {
+            ($$tile[$row][$col],                        # top left
+             $$tile[$col][$size-$row],                  # top right
+             $$tile[$size-$row][$size-$col],            # bottom right
+             $$tile[$size-$col][$row]) =                # bottom left
+                ($$tile[$size-$col][$row],              # bottom left
+                 $$tile[$row][$col],                    # top left
+                 $$tile[$col][$size-$row],              # top right
+                 $$tile[$size-$row][$size-$col]);       # bottom right
+        }
+    }
+}
+
+# ------------------------------------------------------------------------------
+#  Trivial functions with obvious names
+# ------------------------------------------------------------------------------
+sub uniq { my %seen; return grep { !$seen{$_}++ } @_; }
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Read the tiles
+our %tiles;
+{   my $tile;
+    foreach (map { chomp; $_; } <>) {
+        next if m/^$/;
+        if (m/^Tile (\d+):$/) {
+            $tile = $1;
+            next;
+        }
+        push @{$tiles{$tile}}, [ split // ];
+    }
+}
+
+# Associate edges to tiles
+our %edges;
+foreach my $tile (keys %tiles) {
+    # Gather all the edges, as read either direction
+    push @{$edges{$_}}, $tile foreach
+        map { $_, scalar reverse($_) } (&get_top($tiles{$tile}),
+                                        &get_bottom($tiles{$tile}),
+                                        &get_left($tiles{$tile}),
+                                        &get_right($tiles{$tile}));
+}
+
+# Discard edges that don't match up to another (these are edges of the puzzle)
+delete @edges{ grep { @{$edges{$_}} == 1 } keys %edges };
+
+# Figure out which tiles connect to which other tiles
+our %adjacency;
+foreach my $edge (keys %edges) {
+    my ($one, $two) = @{$edges{$edge}};
+    push @{$adjacency{$one}}, $two;
+    push @{$adjacency{$two}}, $one;
+}
+@{$adjacency{$_}} = &uniq(@{$adjacency{$_}}) foreach keys %adjacency;
+
+# Corners have only 2 adjacent pieces
+my @corners = grep { @{$adjacency{$_}} == 2 } keys %adjacency;
+
+# Now to figure out positions of the pieces
+# .........................................
+
+our @board;
+$board[0][0] = $corners[0];             # Place a corner piece in the corner
+
+# Rotate the corner so edges with adjacent tiles are on the right and bottom
+{   my $this = $tiles{ $board[0][0] };
+    &rotate($this)
+        until (exists $edges{&get_right($this)} and
+               exists $edges{&get_bottom($this)});
+}
+
+# Fill in the rest of the board
+{   my $row = 0;
+    while ($row == 0 or
+           exists $edges{&get_bottom( $tiles{$board[$row-1][0]} )}) {
+        my $col = 0;
+
+        # Fill the current space (in first column) on the board if it is empty
+        if (not defined $board[$row][$col]) {
+            # Get the piece above the current empty space
+            my $prev = $board[$row-1][$col];
+            # Find the edge to match against
+            my $edge = &get_bottom( $tiles{$prev} );
+            # Find what piece goes here
+            $board[$row][$col] = (grep { $_ != $prev } @{$edges{$edge}})[0];
+            # Orient the piece so it fits
+            &orient($tiles{$board[$row][$col]}, \&get_top, $edge);
+        }
+
+        # Fill in the rest of the current row
+        while (exists $edges{&get_right( $tiles{$board[$row][$col]} )}) {
+            my $curr = $board[$row][$col];
+            my $edge = &get_right( $tiles{$curr} );
+            $board[$row][$col+1] = (grep { $_ != $curr } @{$edges{$edge}})[0];
+            &orient($tiles{$board[$row][$col+1]}, \&get_left, $edge);
+            $col++
+        }
+        $row++;
+    }
+}
+
+# Assemble the image
+# ..................
+
+# First strip the borders from each tile
+for (my $row = 0; $row < @board; $row++) {
+    for (my $col = 0; $col <= $#{$board[$row]}; $col++) {
+        my $this_tile = $tiles{ $board[$row][$col] };
+
+        # Remove bottom, top, and sides
+        pop @$this_tile;
+        shift @$this_tile;
+        @$this_tile = map { pop @$_; shift @$_; $_ } @$this_tile;
+    }
+}
+
+# Now fill in the actual image
+our @image;
+for (my $row = 0; $row < @board; $row++) {
+    for (my $col = 0; $col <= $#{$board[$row]}; $col++) {
+        my $tile = $tiles{ $board[$row][$col] };
+        for (my $tile_row = 0; $tile_row < @$tile; $tile_row++) {
+            push @{$image[$row*@$tile+$tile_row]}, @{$$tile[$tile_row]};
+        }
+    }
+}
+
+# Hunt for sea monsters
+# .....................
+
+# This will be easier if we can use regex to do the searching.
+
+# The final puzzle might not be oriented correctly; find all 8 possibilities
+# and flatten each one to a big string for easy regex matching.
+our @bigstrings;
+push @bigstrings, join('', map { join('', @$_) } @image);
+push @bigstrings, join('', map { join('', @$_) } reverse @image);
+for my $i (1, 2, 3) {
+    &rotate(\@image);
+    push @bigstrings, join('', map { join('', @$_) } @image);
+    push @bigstrings, join('', map { join('', @$_) } reverse @image);
+}
+
+# Build the sea monster regex
+our $seamonster_regex;
+{   # Base pattern for a sea monster
+    my @seamonster = ('..................#.',
+                      '#....##....##....###',
+                      '.#..#..#..#..#..#...');
+    # Amount of leftover space per line
+    my $extra = @image - length($seamonster[0]);
+    # With that, the actual regex is pretty trivial
+    $seamonster_regex = join(".{${extra}}", @seamonster);
+}
+
+# Check the bigstrings, find the count of sea monsters in the one with the most
+our $seamonster_count = 0;
+foreach (@bigstrings) {
+    # Use zero-width assertions to make sure we find overlapping sea monsters
+    my $matches = () = m/(?=($seamonster_regex))/g;
+    $seamonster_count = $matches if $matches > $seamonster_count;
+}
+
+# Now, finally, we can find the answer.
+my $image_octothorpes = () = $bigstrings[0] =~ m/#/g;
+my $seamonster_octothorpes = () = $seamonster_regex =~ m/#/g;
+print $image_octothorpes - $seamonster_octothorpes * $seamonster_count, "\n";
