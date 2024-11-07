@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (%allergens, %ingredients);
+
+# ------------------------------------------------------------------------------
+#  Calculate the intersection of 2 lists. Lists cannot have duplicate entries.
+# ------------------------------------------------------------------------------
+sub intersection {
+    my ($a, $b) = @_;
+    my (%isect, %union);
+    foreach my $e (@$a, @$b) { $union{$e}++ && $isect{$e}++ }
+    return [ keys %isect ];
+}
+
+# Read input into %allergens and %ingredients
+foreach (map { chomp; $_ } <>) {
+    tr/,)//d;
+    # Ingredients, allergens. "one" & "two" avoids duplicate variable names
+    my ($one, $two) = map { [ split / / ] } split / \(contains /;
+    $ingredients{$_}++ foreach @$one;
+    foreach (@$two) {
+        if (exists $allergens{$_}) {
+            my %hash;
+            @hash{ @{&intersection([ keys %{$allergens{$_}} ], $one)} } = ();
+            $allergens{$_} = \%hash;
+        } else {
+            @{$allergens{$_}}{ @$one } = ();
+        }
+    }
+}
+
+# Solve the allergens
+{   # Find allergens where we already know the association
+    my (@queue) = grep { keys %{$allergens{$_}} == 1 } keys %allergens;
+    while (@queue) {
+        # Get the known allergen and related ingredient
+        my $aller = shift @queue;
+        my ($ingre) = keys %{$allergens{$aller}};
+        # Remove the ingredient from being related to other ingredients
+        foreach my $key (grep { exists $allergens{$_}{$ingre} }
+                         grep { $_ ne $aller }
+                         keys %allergens) {
+            delete $allergens{$key}{$ingre};
+            push @queue, $key if keys %{$allergens{$key}} == 1;
+        }
+    }
+}
+
+# Remove ingredients that are known allergens
+delete @ingredients{ map { (keys %$_) } values %allergens };
+
+# Count how many ingredients are left
+my $sum = 0;
+$sum += $_ foreach values %ingredients;
+print "${sum}\n";
