@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our ($one, $two);
+
+{   local $/ = '';
+    ($one, $two) = map { [ /(\d+)(?!:)/mg ] } <>;
+}
+
+while (@$one and @$two) {
+    my ($c1, $c2) = map { shift @$_ } $one, $two;
+    if ($c1 > $c2) {
+        push @$one, $c1, $c2;
+    } elsif ($c2 > $c1) {
+        push @$two, $c2, $c1;
+    } else {
+        die 'No winner';
+    }
+}
+
+my $sum = 0;
+my $i = 1;
+$sum += $_ foreach map { $_ * $i++ } reverse map { @$_ } $one, $two;
+print "${sum}\n";

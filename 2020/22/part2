@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our ($one, $two);
+
+{   local $/ = '';
+    ($one, $two) = map { [ /(\d+)(?!:)/mg ] } <>;
+}
+
+sub recurse {
+    my ($one, $two) = @_;
+    my %seen;
+
+    while (@$one and @$two) {
+        # If this state has occurred before, instant win for player 1
+        my $state = sprintf('%s-%s', join(',', @$one), join(',', @$two));
+        if ($seen{$state}++) {
+            1 while pop @$two;
+            last;
+        }
+
+        # Draw cards
+        my ($c1, $c2) = map { shift @$_ } $one, $two;
+        # Check if this round is a recursive or classic game
+        if (@$one >= $c1 and @$two >= $c2) {
+            # Both players have enough cards to play a recursive game
+            my $r1 = [ @$one[0..$c1-1] ];
+            my $r2 = [ @$two[0..$c2-1] ];
+            &recurse($r1, $r2);
+            if (@$r1 and not @$r2) {
+                push @$one, $c1, $c2;
+            } elsif (@$r2 and not @$r1) {
+                push @$two, $c2, $c1;
+            } else {
+                die 'No winner';
+            }
+        } else {
+            # High card wins this round
+            if ($c1 > $c2) {
+                push @$one, $c1, $c2;
+            } elsif ($c2 > $c1) {
+                push @$two, $c2, $c1;
+            } else {
+                die 'No winner';
+            }
+        }
+    }
+}
+
+&recurse($one, $two);
+
+my $sum = 0;
+my $i = 1;
+$sum += $_ foreach map { $_ * $i++ } reverse map { @$_ } $one, $two;
+print "${sum}\n";
