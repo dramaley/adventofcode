@@ -1,0 +1,38 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Please note that doing ten million substr operations on a million-character
+# UTF-8 string might be a bit slow.
+
+our $moves = 10000000;
+our $bigcup = 1000000;  # Highest-number cup
+
+# Instead of using the digits directly, convert them to Unicode code points
+our $cups = join '', map { chr int } map { chomp; split // } <>;
+
+# Add some extra cups
+$cups .= join '', map { chr } length($cups)+1..$bigcup;
+
+while ($moves--) {
+    # Get the current cup and the 3 cups after it
+    my $curr = substr($cups, 0, 1, '');
+    my $remove = substr($cups, 0, 3, '');
+
+    # Select the destination
+    my $dest = chr(ord($curr) - 1 || $bigcup);
+    $dest = chr(ord($dest) - 1 || $bigcup) until $cups =~ m/\Q${dest}\E/g;
+
+    # Place the cups removed earlier
+    substr($cups, pos($cups), 0, $remove);
+    $cups .= $curr;
+}
+
+my $search = chr(1);
+$cups =~ m/${search}/g;
+
+my $product = 1;
+$product *= $_ foreach map { ord } split //, substr($cups, pos($cups), 2);
+print "${product}\n";

@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $moves = 100;
+chomp (our $cups = <>);
+
+while ($moves--) {
+    # Get the current cup and the 3 cups after it
+    my $curr = substr($cups, 0, 1, '');
+    my $remove = substr($cups, 0, 3, '');
+
+    # Select the destination
+    my $dest = $curr - 1 || 9;
+    $dest = $dest - 1 || 9 until $cups =~ m/${dest}/g;
+
+    # Place the cups removed earlier
+    substr($cups, pos($cups), 0, $remove);
+    $cups .= $curr;
+}
+
+# Get the ordering for the final answer
+$cups = join('', (split /1/, $cups)[1, 0]);
+print "${cups}\n";
