@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our ($value, $encryption_key) = (1, 1);
+our (@keys) = map { chomp; $_ } <>;
+
+# This will work with the indices to @keys reversed. 1, 0 was observed to be
+# faster with the provided input.
+while ($value != $keys[1]) {            # Use 0 or 1 as the index to @keys
+    $value *= 7;
+    $value %= 20201227;
+    $encryption_key *= $keys[0];        # Use the opposite index as before
+    $encryption_key %= 20201227;
+}
+print "${encryption_key}\n";
