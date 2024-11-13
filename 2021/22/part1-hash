@@ -26,11 +26,11 @@ my $regex = ('[^-\d]+([-\d]+)') x 6; $regex = qr/^(on|off)${regex}/;
         # Process the cuboid
         foreach my $x ($cuboid[0]..$cuboid[1]) {
             foreach my $y ($cuboid[2]..$cuboid[3]) {
-		if ($state) {
-		    @grid{map { "$x $y $_" } $cuboid[4]..$cuboid[5]} = ();
-		} else {
-		    delete @grid{map { "$x $y $_" } $cuboid[4]..$cuboid[5]};
-		}
+                if ($state) {
+                    @grid{map { "$x $y $_" } $cuboid[4]..$cuboid[5]} = ();
+                } else {
+                    delete @grid{map { "$x $y $_" } $cuboid[4]..$cuboid[5]};
+                }
             }
         }
     }

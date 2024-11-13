@@ -135,8 +135,8 @@ while (my $entry = $pq->get()) {
     foreach my $src (keys %$state) {    # Examine each amphipod
         my ($src_row, $src_col) = split /-/, $src;
         my ($letter, $movement_count) = @{$$state{$src}};
-	# Skip if this amphipod has already moved too much
-	next if $movement_count >= 2;
+        # Skip if this amphipod has already moved too much
+        next if $movement_count >= 2;
         # Skip if this amphipod is already in the correct position
         next if ($src_col == $destinations{$letter} and
                  $max_row - $src_row + 1 == (grep { $$state{$_}[0] eq $letter }
@@ -147,17 +147,17 @@ while (my $entry = $pq->get()) {
         foreach my $movement (@{$movements{$src}}) {
             my ($dst, $dist) = @$movement;
             my ($dst_row, $dst_col) = split /-/, $dst;
-	    # Figure out cost of this movement and bail out if too expensive
+            # Figure out cost of this movement and bail out if too expensive
             my $new_cost = $cost + $dist * $movement_cost{$letter};
-	    next if $new_cost >= $solution;
-	    # Extra checks if moving into a room
+            next if $new_cost >= $solution;
+            # Extra checks if moving into a room
             if ($dst_row > 1) {
                 # Amphipods can't move into a room that isn't theirs
                 next if $dst_col != $destinations{$letter};
                 # Amphipods cannot move into their room if any spaces below do
                 # not already contain the correct type of amphipod
                 next if (grep { ((not exists $$state{$_}) or
-				 $$state{$_}[0] ne $letter) }
+                                 $$state{$_}[0] ne $letter) }
                          map { "${_}-${dst_col}" }
                          $dst_row+1..$max_row);
             }
