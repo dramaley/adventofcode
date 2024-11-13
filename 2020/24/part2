@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %dirs = ('e'  => [ 2,  0],
+             'se' => [ 1, -1],
+             'sw' => [-1, -1],
+             'w'  => [-2,  0],
+             'nw' => [-1,  1],
+             'ne' => [ 1,  1]);
+
+our @input = map { chomp; $_ } <>;
+
+our %tiles;     # Even values indicate a white tile, odd values black
+foreach my $line (@input) {
+    my ($x, $y) = (0, 0);
+    foreach my $move ($line =~ m/(e|se|sw|w|nw|ne)/g) {
+        my $dirs = $dirs{$move};
+        $x += $$dirs[0];
+        $y += $$dirs[1];
+    }
+    $tiles{"${x},${y}"}++;
+}
+# No need to save white tiles
+delete $tiles{$_} foreach grep { $tiles{$_} % 2 == 0 } keys %tiles;
+
+foreach (1..100) {
+    my %new_tiles = ();
+
+    # A black tile with either 1 or 2 black tiles near it remains black
+    foreach my $black (keys %tiles) {
+        # Calculate the keys for all 6 directions, count how many exist
+        my ($x, $y) = split /,/, $black;
+        my $count = (grep { exists $tiles{$_} }
+                     map { ($x+$$_[0]) . ',' . ($y+$$_[1]) }
+                     values %dirs);
+        if ($count == 1 or $count == 2) {
+            $new_tiles{$black} = 1;
+        }
+    }
+
+    # A white tile with 2 black tiles adjacent becomes black
+    my %count;
+    foreach my $black (keys %tiles) {
+        my ($x, $y) = split /,/, $black;
+        $count{$_}++ foreach (# Exclude black tiles
+                              grep { not exists $tiles{$_} }
+                              # Generate all adjacent tiles
+                              map { ($x+$$_[0]) . ',' . ($y+$$_[1]) }
+                              values %dirs);
+    }
+    $new_tiles{$_} = 1 foreach grep { $count{$_} == 2 } keys %count;
+
+    %tiles = %new_tiles;
+}
+print scalar(%tiles), "\n";

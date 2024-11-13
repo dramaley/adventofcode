@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %dirs = ('e'  => [ 2,  0],
+             'se' => [ 1, -1],
+             'sw' => [-1, -1],
+             'w'  => [-2,  0],
+             'nw' => [-1,  1],
+             'ne' => [ 1,  1]);
+
+our @input = map { chomp; $_ } <>;
+
+our %tiles;
+foreach my $line (@input) {
+    my ($x, $y) = (0, 0);
+    foreach my $move ($line =~ m/(e|se|sw|w|nw|ne)/g) {
+        my $dirs = $dirs{$move};
+        $x += $$dirs[0];
+        $y += $$dirs[1];
+    }
+    $tiles{"${x},${y}"}++;
+}
+delete $tiles{$_} foreach grep { $tiles{$_} % 2 == 0 } keys %tiles;
+
+print scalar(%tiles), "\n";
