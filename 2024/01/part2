@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (@one, @two);
+
+foreach (map { chomp; [ split /\s+/ ]; } <>) {
+    push @one, $$_[0];
+    push @two, $$_[1];
+}
+
+my $score = 0;
+foreach my $num (@one) {
+    my $count = grep { $_ == $num } @two;
+    $score += $num * $count;
+}
+print "${score}\n";

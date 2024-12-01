@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (@one, @two);
+
+foreach (map { chomp; [ split /\s+/ ]; } <>) {
+    push @one, $$_[0];
+    push @two, $$_[1];
+}
+
+@one = sort { $a <=> $b } @one;
+@two = sort { $a <=> $b } @two;
+
+my $sum = 0;
+$sum += abs(pop(@one) - pop(@two)) while @one;
+print "${sum}\n";
