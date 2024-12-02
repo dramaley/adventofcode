@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#  Check if a given list is "safe"
+# ------------------------------------------------------------------------------
+sub check {
+    my (@list) = @_;
+
+    # Test if @list is sorted in either ascending or descending order
+    my $joined = join('-', @list);
+    if ($joined eq join('-', sort { $a <=> $b } @list) or
+        $joined eq join('-', sort { $b <=> $a } @list)) {
+
+        # Now test how much adjacent values in the list differ
+        my $i = shift @list;
+        while (@list) {
+            my $val = abs($i - $list[0]);
+            last if $val < 1 or $val > 3;
+            $i = shift @list;
+        }
+        return 1 if not @list;
+    }
+    return 0
+}
+
+my $safe = 0;
+foreach (map { chomp; $_; } <>) {
+    my (@list) = split /\s+/;
+    if (&check(@list)) {
+        $safe++;
+        next;
+    }
+    # List isn't safe, so try again with each element in turn removed
+    foreach my $i (0..$#list) {
+        my @list2 = @list;
+        splice @list2, $i, 1;
+        if (&check(@list2)) {
+            $safe++;
+            last;
+        }
+    }
+}
+
+print "${safe}\n";

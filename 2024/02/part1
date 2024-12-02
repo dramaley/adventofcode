@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $safe = 0;
+foreach (map { chomp; $_; } <>) {
+    my (@list) = split /\s+/;
+    my $joined = join('-', @list);
+    # Test if @list is sorted in either ascending or descending order
+    if ($joined eq join('-', sort { $a <=> $b } @list) or
+        $joined eq join('-', sort { $b <=> $a } @list)) {
+        # Now test how much adjacent values in the list differ
+        my $i = shift @list;
+        while (@list) {
+            my $val = abs($i - $list[0]);
+            last if $val < 1 or $val > 3;
+            $i = shift @list;
+        }
+        $safe++ if not @list;
+    }
+}
+
+print "${safe}\n";
