@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (@input) = map { chomp; $_; } <>;
+our $cols = length $input[0];
+
+# Space separator avoids false matches around line ending/beginning
+my $line = join(' ', @input);
+my (@regexes) = (
+    'XMAS', 'SAMX',                               # Horizontal -
+    join('.' x $cols, 'X', 'M', 'A', 'S'),        # Vertical |
+    join('.' x $cols, 'S', 'A', 'M', 'X'),
+    join('.' x ($cols + 1), 'X', 'M', 'A', 'S'),  # Diagonal \
+    join('.' x ($cols + 1), 'S', 'A', 'M', 'X'),
+    join('.' x ($cols - 1), 'X', 'M', 'A', 'S'),  # Diagonal /
+    join('.' x ($cols - 1), 'S', 'A', 'M', 'X')
+);
+
+my $count = 0;
+foreach my $regex (@regexes) {
+    # Use zero-width assertions to make sure we find overlapping matches
+    my $matches = () = $line =~ m/(?=(${regex}))/g;
+    $count += $matches;
+}
+print "${count}\n";
