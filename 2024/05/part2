@@ -17,20 +17,13 @@ while (<>) {
 
 my $mids = 0;
 # Read page numbers for each update
-foreach my $line (<>) {
+foreach my $line (map { chomp; $_ } <>) {
     # Make sure this line is *not* valid
-    my (@keys) = grep { $line =~ /$_/ } keys %rules;
-    my $valid = 1;  # Assume valid until proven otherwise.
-    foreach my $key (@keys) {
-        if ($line !~ /${rules{$key}}/) {
-            $valid = 0;
-            last;
-        }
-    }
-    next if $valid;
+    next if not (grep { $line !~ /${rules{$_}}/ }
+                 grep { $line =~ /$_/ }
+                 keys %rules);
 
     # Sort the line
-    chomp $line;
     sub sorter { $tests{"$a,$b"} or $tests{"$b,$a"} or undef }
     my (@numbers) = sort sorter split /,/, $line;
 
