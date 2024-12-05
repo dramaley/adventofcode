@@ -14,17 +14,16 @@ while (<>) {
 }
 
 my $mids = 0;
- OUTER:
-    # Read page numbers for each update
-    foreach my $line (<>) {
-        # Make sure this line is valid
-        foreach my $key (grep { $line =~ /$_/ } keys %rules) {
-            next OUTER if $line !~ /${rules{$key}}/;
-        }
+# Read page numbers for each update
+foreach my $line (<>) {
+    # Make sure this line is valid
+    next if (grep { $line !~ /${rules{$_}}/ }
+             grep { $line =~ /$_/ }
+             keys %rules);
 
-        # Save the middle value
-        my (@numbers) = split /,/, $line;
-        $mids += $numbers[$#numbers / 2];
-    }
+    # Save the middle value
+    my (@numbers) = split /,/, $line;
+    $mids += $numbers[$#numbers / 2];
+}
 
 print "${mids}\n";
