@@ -16,27 +16,26 @@ while (<>) {
 }
 
 my $mids = 0;
- OUTER:
-    # Read page numbers for each update
-    foreach my $line (<>) {
-        # Make sure this line is *not* valid
-        my (@keys) = grep { $line =~ /$_/ } keys %rules;
-        my $valid = 1;  # Assume valid until proven otherwise.
-        foreach my $key (@keys) {
-            if ($line !~ /${rules{$key}}/) {
-                $valid = 0;
-                last;
-            }
+# Read page numbers for each update
+foreach my $line (<>) {
+    # Make sure this line is *not* valid
+    my (@keys) = grep { $line =~ /$_/ } keys %rules;
+    my $valid = 1;  # Assume valid until proven otherwise.
+    foreach my $key (@keys) {
+        if ($line !~ /${rules{$key}}/) {
+            $valid = 0;
+            last;
         }
-        next if $valid;
-
-        # Sort the line
-        chomp $line;
-        sub sorter { $tests{"$a,$b"} or $tests{"$b,$a"} or undef }
-        my (@numbers) = sort sorter split /,/, $line;
-
-        # Save the middle value
-        $mids += $numbers[$#numbers / 2];
     }
+    next if $valid;
+
+    # Sort the line
+    chomp $line;
+    sub sorter { $tests{"$a,$b"} or $tests{"$b,$a"} or undef }
+    my (@numbers) = sort sorter split /,/, $line;
+
+    # Save the middle value
+    $mids += $numbers[$#numbers / 2];
+}
 
 print "${mids}\n";
