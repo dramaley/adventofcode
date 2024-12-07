@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (@grid, $max_row, $max_col, $row, $col);
+our %movement = (
+    '^' => [-1,  0],    # Subtract one from $row to move up
+    'v' => [ 1,  0],    # Add one to move down
+    '<' => [ 0, -1],    # Subtract one from $col to move left
+    '>' => [ 0,  1]     # Add one to move right
+);
+
+# Test if a given row and column are on the grid
+sub on_grid {
+    my ($row, $col) = @_;
+    return ($row >= 0 and $row <= $max_row and $col >= 0 and $col <= $max_col);
+}
+
+# Read input
+foreach (map { chomp; $_ } <>) {
+    push @grid, [ split // ];
+    # Look for the start point
+    if (m/(?=[^.#])/g) {
+        $row = $#grid;
+        $col = pos;
+    }
+}
+$max_row = $#grid;
+$max_col = $#{$grid[0]};
+
+my $direction = $grid[$row][$col];
+my %visited;
+while (&on_grid($row, $col)) {
+    $visited{"${row},${col}"}++;
+    my ($delta_row, $delta_col) = @{$movement{$direction}};
+    # Change direction if the next movement is a barrier
+    while (&on_grid($row + $delta_row, $col + $delta_col) and
+           $grid[$row + $delta_row][$col + $delta_col] eq '#') {
+        $direction =~ tr/^>v</>v<^/;
+        ($delta_row, $delta_col) = @{$movement{$direction}};
+    }
+    # Make the move
+    $row += $delta_row;
+    $col += $delta_col;
+}
+print scalar(keys %visited), "\n";
