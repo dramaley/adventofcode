@@ -1,0 +1,84 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Storable qw/dclone/;
+
+# This is a more optimized solution to Part 2; rather than attempting to place
+# an obstacle at all possible points on the grid, it only places one in the
+# path that is actually traversed. This ends up saving quite a bit of time.
+#
+# Run times for the various versions:
+#     ./part2           251 seconds
+#     ./part2-lowmem    169
+#     ./part2-final      35
+
+our (@grid, $max_row, $max_col, $start_row, $start_col);
+our %movement = (
+    '^' => [-1,  0],    # Subtract one from $row to move up
+    'v' => [ 1,  0],    # Add one to move down
+    '<' => [ 0, -1],    # Subtract one from $col to move left
+    '>' => [ 0,  1]     # Add one to move right
+);
+
+# Test if a given row and column are on the grid
+sub on_grid {
+    my ($row, $col) = @_;
+    return ($row >= 0 and $row <= $max_row and $col >= 0 and $col <= $max_col);
+}
+
+# Run the simulation; return 1 if it gets stuck in a loop, 0 otherwise
+sub do_it {
+    # Set this to something truthy to disable loop detection and instead return
+    # a list of coordinates that were visited.
+    my ($flag) = @_;
+
+    my ($row, $col) = ($start_row, $start_col);
+    my $direction = $grid[$row][$col];
+    my %visited;
+    while (&on_grid($row, $col)) {
+        if ($flag) {
+            $visited{"${row},${col}"}++;
+        } else {
+            return 1 if $visited{"${row},${col},${direction}"}++;
+        }
+        my ($delta_row, $delta_col) = @{$movement{$direction}};
+        # Change direction if the next movement is a barrier
+        while (&on_grid($row + $delta_row, $col + $delta_col) and
+               $grid[$row + $delta_row][$col + $delta_col] eq '#') {
+            $direction =~ tr/^>v</>v<^/;
+            ($delta_row, $delta_col) = @{$movement{$direction}};
+        }
+        # Make the move
+        $row += $delta_row;
+        $col += $delta_col;
+    }
+    return ($flag ? \%visited : 0);
+}
+
+# Read input
+foreach (map { chomp; $_ } <>) {
+    push @grid, [ split // ];
+    # Look for the start point
+    if (m/(?=[^.#])/g) {
+        $start_row = $#grid;
+        $start_col = pos;
+    }
+}
+$max_row = $#grid;
+$max_col = $#{$grid[0]};
+
+# Identify the coordinates of the path where we can add an obstacle
+my %visited = %{ &do_it(1) };
+delete $visited{"${start_row},${start_col}"};   # The origin is off-limits
+
+# Now test filling in each space with an obstacle and see what happens
+my $sum = 0;
+foreach (keys %visited) {
+    my ($row, $col) = split /,/;
+    $grid[$row][$col] = '#';    # Temporary obstacle
+    $sum += &do_it();
+    $grid[$row][$col] = '.';    # Put it back
+}
+print "${sum}\n";

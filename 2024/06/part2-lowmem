@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This was my second solution for Part 2. It runs with roughly half the RAM
+# requirement, and roughly 25% faster. This was accomplished by not copying
+# the @grid for each point that we test.
+
+our (@grid, $max_row, $max_col, $start_row, $start_col);
+our %movement = (
+    '^' => [-1,  0],    # Subtract one from $row to move up
+    'v' => [ 1,  0],    # Add one to move down
+    '<' => [ 0, -1],    # Subtract one from $col to move left
+    '>' => [ 0,  1]     # Add one to move right
+);
+
+# Test if a given row and column are on the grid
+sub on_grid {
+    my ($row, $col) = @_;
+    return ($row >= 0 and $row <= $max_row and $col >= 0 and $col <= $max_col);
+}
+
+# Run the simulation; return 1 if it gets stuck in a loop, 0 otherwise
+sub do_it {
+    my ($row, $col) = ($start_row, $start_col);
+    my $direction = $grid[$row][$col];
+    my %visited;
+    while (&on_grid($row, $col)) {
+        return 1 if $visited{"${row},${col},${direction}"}++;
+        my ($delta_row, $delta_col) = @{$movement{$direction}};
+        # Change direction if the next movement is a barrier
+        while (&on_grid($row + $delta_row, $col + $delta_col) and
+               $grid[$row + $delta_row][$col + $delta_col] eq '#') {
+            $direction =~ tr/^>v</>v<^/;
+            ($delta_row, $delta_col) = @{$movement{$direction}};
+        }
+        # Make the move
+        $row += $delta_row;
+        $col += $delta_col;
+    }
+    return 0;
+}
+
+# Read input
+foreach (map { chomp; $_ } <>) {
+    push @grid, [ split // ];
+    # Look for the start point
+    if (m/(?=[^.#])/g) {
+        $start_row = $#grid;
+        $start_col = pos;
+    }
+}
+$max_row = $#grid;
+$max_col = $#{$grid[0]};
+
+# Test filling in each space with an obstacle and see what happens
+my $sum = 0;
+foreach my $r (0..$max_row) {
+    foreach my $c (0..$max_col) {
+        # Can't put an obstacle on the start position
+        next if $r == $start_row and $c == $start_col;
+        # Don't bother if it already has an obstacle
+        next if $grid[$r][$c] eq '#';
+        # Do it.
+        $grid[$r][$c] = '#';    # Temporary obstacle
+        $sum += &do_it();
+        $grid[$r][$c] = '.';    # Put it back
+    }
+}
+print "${sum}\n";
