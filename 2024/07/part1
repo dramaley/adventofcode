@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use 5.14.0;
+use strict;
+use warnings 'all';
+use experimental 'smartmatch';
+
+# Trivial functions with obvious names
+sub uniq { my %seen; return grep { !$seen{$_}++ } @_; }
+
+my $total = 0;
+foreach (map { chomp; $_ } <>) {
+    my ($lhs, @rhs) = split /[: ]+/;
+
+    # Explore every option
+    my (@all) = shift @rhs;
+    while (@rhs) {
+        my $next = shift @rhs;
+        @all = &uniq(map { $_ + $next, $_ * $next } @all);
+    }
+
+    $total += $lhs if $lhs ~~ @all;
+}
+print "${total}\n";
