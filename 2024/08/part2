@@ -4,10 +4,50 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our (%antennas, $max_row, $max_col);
+{   # Read input into an array so it is easier to determine size
+    my (@lines) = map { chomp; $_; } <>;
+    $max_row = $#lines;
+    $max_col = length($lines[0]) - 1;
 
+    # Parse input
+    for my $i (0..$max_row) {
+        while ($lines[$i] =~ m/(?=([[:alnum:]]))/g) {
+            push @{$antennas{$1}}, [ $i, pos($lines[$i]) ];
+        }
+    }
+}
 
+my %antinodes;
+foreach my $val (values %antennas) {
+    foreach my $i (0..$#$val-1) {
+        my $one = $$val[$i];
+        foreach my $j ($i+1..$#$val) {
+            my $two = $$val[$j];
+            # Calculate antinode coordinates
+            my $delta_row = $$two[0] - $$one[0];
+            my $delta_col = $$two[1] - $$one[1];
+            # Calculate all antinodes that are on the grid
+            my $i = 0;
+            while (1) {
+                my $row = $$one[0] - $i * $delta_row;
+                my $col = $$one[1] - $i * $delta_col;
+                last if ($row < 0 or $row > $max_row or
+                         $col < 0 or $col > $max_col);
+                $antinodes{join("\t", $row, $col)}++;
+                $i++;
+            }
 
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+            $i = 0;
+            while (1) {
+                my $row = $$two[0] + $i * $delta_row;
+                my $col = $$two[1] + $i * $delta_col;
+                last if ($row < 0 or $row > $max_row or
+                         $col < 0 or $col > $max_col);
+                $antinodes{join("\t", $row, $col)}++;
+                $i++;
+            }
+        }
+    }
+}
+print scalar(keys %antinodes), "\n";
