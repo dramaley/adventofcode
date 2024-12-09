@@ -4,10 +4,49 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our @blocks;
 
+# Read input
+{   my $i = 0;
+    foreach (map { chomp; split //; } <>) {
+        my $item = $i % 2 == 0 ? $i/2 : undef;
+        push @blocks, ($item) x $_;
+        $i++;
+    }
+}
 
+# Reorganize files
+my $i = $#blocks;
+while ($i >= 0) {
+    # Skip empty spaces
+    $i-- while not defined $blocks[$i];
+    last if $i < 0;
+    # Find the span of this file
+    my $end = $i;
+    1 while $blocks[$end] == ($blocks[--$i] // -1);
+    my $len = $end - $i;
+    # Find a space to move the file into
+    my $ptr = 0;
+    my $empty_len = 0;
+    while ($ptr <= $i and $empty_len < $len) {
+        if (defined $blocks[$ptr]) {
+            $empty_len = 0;
+        } else {
+            $empty_len++;
+        }
+        $ptr++;
+    }
+    # Move the file
+    if ($empty_len == $len) {
+        $ptr -= $empty_len;
+        for (my $j = 0; $j < $len; $j++) {
+            $blocks[$ptr + $j] = $blocks[$i + $j + 1];
+            $blocks[$i + $j + 1] = undef;
+        }
+    }
+}
 
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Calculate checksum
+my $sum = 0;
+$sum += ($blocks[$_] // 0) * $_ foreach 0..$#blocks;
+print "${sum}\n";
