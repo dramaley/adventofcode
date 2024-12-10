@@ -4,10 +4,43 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our (@grid, @trailheads);
+{   # Read input and find zeroes (aka, trailheads);
+    while (<>) {
+        chomp;
+        while (m/(?=0)/g) {
+            push @trailheads, [ $.-1, pos ];
+        }
+        push @grid, [ split // ];
+    }
+}
 
+# Given a (row, column) location, return a list of summits. The list may contain
+# duplicate values if there are multiple paths to reach the particular summit.
+sub find_summits {
+    my ($row, $col) = @_;
 
+    my @results = ();
+    foreach ([$row, $col-1], [$row, $col+1], [$row-1, $col], [$row+1, $col]) {
+        my ($new_row, $new_col) = @$_;
+        # Check for out of bounds
+        next if ($new_row < 0 or $new_row > $#grid or
+                 $new_col < 0 or $new_col > $#{$grid[0]});
+        # This isn't a gradual, uphill slope
+        next if $grid[$new_row][$new_col] != 1 + $grid[$row][$col];
+        # Found a summit
+        push @results, [$new_row, $new_col]
+            if $grid[$new_row][$new_col] == 9;
+        # Keep climbing
+        push @results, @{ &find_summits($new_row, $new_col) };
+    }
+    return \@results;
+}
 
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+my $score = 0;
+foreach (@trailheads) {
+    my %solutions;
+    $solutions{$$_[0]}{$$_[1]}++ foreach @{ &find_summits(@$_) };
+    $score += scalar map { keys %$_ } values %solutions;
+}
+print "${score}\n";
