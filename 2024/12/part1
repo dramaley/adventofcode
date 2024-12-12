@@ -4,10 +4,55 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# Initialization
+our (@map) = map { chomp; [ split // ]; } <>;
+our $max_row = $#map;
+our $max_col = $#{$map[0]};
 
+# ------------------------------------------------------------------------------
+#  Given (row, column) of a garden plot, find all adjoining plots of the same
+#  type and find the area and perimeter.
+# ------------------------------------------------------------------------------
+sub region {
+    my ($row, $col) = @_;
 
+    my ($area, $perimeter);
+    my $type = $map[$row][$col];
+    my (@queue) = ([$row, $col]);
+    my %seen;
+    while (@queue) {
+        my ($r, $c) = @{shift @queue};
+        # Already been here
+        next if $map[$r][$c] ne $type;
+        # Mark this plot visited
+        $area++;
+        $map[$r][$c] = '.';
+        $seen{"$r,$c"}++;
+        # Explore neighboring plots
+        foreach ([$r, $c-1], [$r, $c+1], [$r-1, $c], [$r+1, $c]) {
+            my ($new_r, $new_c) = @$_;
+            # Don't count previously visited plots
+            next if $seen{"$new_r,$new_c"};
+            # Boundary detection
+            if ($new_r < 0 or $new_r > $max_row or  # Row out of bounds
+                $new_c < 0 or $new_c > $max_col or  # Column out of bounds
+                $map[$new_r][$new_c] ne $type) {    # Neighbor is different type
+                $perimeter++;
+                next;
+            }
+            # Neighbor is the same plot type; add it to the queue
+            push @queue, [$new_r, $new_c];
+        }
+    }
+    return $area * $perimeter;
+}
 
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Main loop
+my $sum = 0;
+foreach my $row (0..$max_row) {
+    foreach my $col (0..$max_col) {
+        next if $map[$row][$col] eq '.';
+        $sum += &region($row, $col);
+    }
+}
+print "${sum}\n";
