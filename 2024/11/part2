@@ -4,10 +4,28 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our %stones;
+$stones{$_}++ foreach map { chomp; split / /; } <>;
 
+sub mapping {
+    my ($stone) = @_;
+    my $len = length($stone);
 
+    $stone == 0   and do { return 1; };
+    $len % 2 == 0 and do { my $one = int($stone / 10**($len/2));
+                           my $two = $stone - $one * 10**($len/2);
+                           return ($one, $two); };
+    return $stone * 2024;
+}
 
+foreach (1..75) {
+    my %next;
+    foreach my $key (keys %stones) {
+        $next{$_} += $stones{$key} foreach map { &mapping($_) } $key;
+    }
+    %stones = %next;
+}
 
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+my $count = 0;
+$count += $_ foreach values %stones;
+print "${count}\n";

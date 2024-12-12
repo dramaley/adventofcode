@@ -10,7 +10,7 @@ sub mapping {
     my ($stone) = @_;
     my $len = length($stone);
 
-    $stone eq 0   and do { return 1; };
+    $stone == 0   and do { return 1; };
     $len % 2 == 0 and do { my $one = int($stone / 10**($len/2));
                            my $two = $stone - $one * 10**($len/2);
                            return ($one, $two); };
