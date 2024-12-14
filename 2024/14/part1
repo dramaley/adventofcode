@@ -4,10 +4,37 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our ($max_row, $max_col);
+if (1) {
+    # Real input
+    $max_row = 103;
+    $max_col = 101;
+} else {
+    # Sample input
+    $max_row = 7;
+    $max_col = 11;
+}
 
+our @input = map { [ m/([-\d]+),([-\d]+).+?([-\d]+),([-\d]+)/ ] } <>;
 
+# Move the robots
+foreach my $robot (@input) {
+    my ($col, $row, $v_col, $v_row) = @$robot;
+    $col += $v_col * 100; $col %= $max_col;
+    $row += $v_row * 100; $row %= $max_row;
+    @$robot = ($col, $row);
+}
 
+# Count how many robots are in each quadrant
+my $bad_row = int($max_row/2);
+my $bad_col = int($max_col/2);
+my @quadrant;
+foreach my $robot (@input) {
+    my ($col, $row) = @$robot;
+    next if $row == $bad_row or $col == $bad_col;
+    $quadrant[2 * int($row > $bad_row) + int($col > $bad_col)]++;
+}
 
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+my $product = 1;
+$product *= $_ foreach @quadrant;
+print "${product}\n";

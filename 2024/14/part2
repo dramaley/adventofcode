@@ -4,10 +4,48 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our (@input, $max_row, $max_col);
 
+# Generate printable output
+sub printable {
+    my @output = map { [('.') x $max_col ] } 1..$max_row;
+    foreach (@input) {
+        no warnings 'numeric';
+        my ($col, $row) = @$_;
+        $output[$row][$col]++;
+    }
+    return join '', map { join('', @$_) . "\n" } @output;
+}
 
+if (1) {
+    # Real input
+    $max_row = 103;
+    $max_col = 101;
+} else {
+    # Sample input
+    $max_row = 7;
+    $max_col = 11;
+}
 
+@input = map { [ m/([-\d]+),([-\d]+).+?([-\d]+),([-\d]+)/ ] } <>;
 
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Move the robots
+my $i = 1;
+while (1) {
+    foreach my $robot (@input) {
+        my ($col, $row, $v_col, $v_row) = @$robot;
+        $col += $v_col; $col %= $max_col;
+        $row += $v_row; $row %= $max_row;
+        @{$robot}[0,1] = ($col, $row);
+    }
+    # This is such a hack...
+    # After moving all the robots 1 step, generate printable output and search
+    # for 10 consecutive digits in the hope that it'll be right.
+    my $string = &printable;
+    if ($string =~ m/\d{10}/s) {
+        print "${i}\n";
+        print &printable;
+        exit;
+    }
+    $i++;
+}
