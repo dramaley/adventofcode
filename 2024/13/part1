@@ -4,10 +4,22 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our @input;
+{   my $i = 0;
+    m/X[+=](\d+), Y[+=](\d+)/ ? push(@{$input[$i]}, $1, $2) : $i++ while <>;
+}
 
+my $cost = 0;
+foreach (@input) {
+    my ($a_x, $a_y, $b_x, $b_y, $prize_x, $prize_y) = @$_;
 
+    # Cramer's rule
+    my $d1 = $a_x * $b_y - $b_x * $a_y;
+    my $d2 = $prize_x * $b_y - $prize_y * $b_x;
+    my $d3 = $prize_y * $a_x - $prize_x * $a_y;
 
+    next if $d2 % $d1 != 0 or $d3 % $d1 != 0;   # No solution
 
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+    $cost += 3 * $d2 / $d1 + $d3 / $d1;
+}
+print "${cost}\n";
