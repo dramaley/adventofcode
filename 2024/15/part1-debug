@@ -4,6 +4,10 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# Keeping this intermediate version with debug support, just because it's kind
+# of neat to be able to see the map.
+our $DEBUG = 1;
+
 # %objects will be a hash of all the stuff on the grid, with "row,col" keys and
 # true values movable objects (1 for boxes, 2 for the robot) and false for
 # unmovable objects (0 for walls).
@@ -25,16 +29,19 @@ our @movements = map { chomp; split //; } <>;
 foreach my $movement (@movements) {
     my %deltas = ('^' => [-1, 0], 'v' => [1, 0], '<' => [0, -1], '>' => [0, 1]);
     my ($row_delta, $col_delta) = @{ $deltas{$movement} };
+    print "Processing ${movement}:\n" if $DEBUG;
     # Figure out what to move and put it in a queue
     my @queue = ();
     my ($temp_row, $temp_col) = ($row, $col);
     while (defined $objects{"${temp_row},${temp_col}"}) {
         if ($objects{"${temp_row},${temp_col}"}) {
+            print "\tPushing ${temp_row},${temp_col}\n" if $DEBUG;
             push @queue, "${temp_row},${temp_col}";
             $temp_row += $row_delta;
             $temp_col += $col_delta;
         } else {
             # Hit a wall
+            print "\tSplat!\n" if $DEBUG;
             @queue = ();
             last;
         }
@@ -44,13 +51,26 @@ foreach my $movement (@movements) {
         my $key = pop @queue;
         my $new_row = (split /,/, $key)[0] + $row_delta;
         my $new_col = (split /,/, $key)[1] + $col_delta;
+        print "\tMoving ${key} to ${new_row},${new_col}\n" if $DEBUG;
         $objects{"${new_row},${new_col}"} = $objects{$key};
         if ($objects{$key} == 2) {      # The thing moving is the robot
+            print "\tMoving the robot\n" if $DEBUG;
             $row = $new_row;
             $col = $new_col;
         }
         delete $objects{$key};
     }
+}
+
+# Print the grid (useful for debuggery)
+if ($DEBUG) {
+    my @output;
+    foreach my $key (keys %objects) {
+        my ($r, $c) = split /,/, $key;
+        my %dict = (0 => '#', 1 => 'O', 2 => '@');
+        $output[$r][$c] = $dict{$objects{$key}};
+    }
+    print map { join('', map { $_ // '.' } @$_) . "\n" } @output;
 }
 
 # Tally the score

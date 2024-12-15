@@ -4,6 +4,8 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our $DEBUG = 1;
+
 # %objects will be a hash of all the stuff on the grid, with "row,col" keys.
 # $row, $col are the coordinates for the robot's position.
 our (%objects, $row, $col);
@@ -23,26 +25,41 @@ while (<>) {
 # List of robot's attempted movements
 our @movements = map { chomp; split //; } <>;
 
+# Print the grid (useful for debuggery)
+sub disp {
+    my @output;
+    foreach my $key (keys %objects) {
+        my ($r, $c) = split /,/, $key;
+        $output[$r][$c] = $objects{$key};
+    }
+    print map { join('', map { $_ // '.' } @$_) . "\n" } @output;
+}
+
 # Run the simulation
 foreach my $movement (@movements) {
     my %deltas = ('^' => [-1, 0], 'v' => [1, 0], '<' => [0, -1], '>' => [0, 1]);
     my ($row_delta, $col_delta) = @{ $deltas{$movement} };
+    &disp if $DEBUG;
     my @queue = ();
     # Process horizontal and vertical movement separately.
     if ($movement =~ m/^[<>]$/) {
+        print "Processing horizontal ${movement}:\n" if $DEBUG;
         # Figure out what to move and put it in a queue
         my $temp_col = $col;
         while (defined $objects{"${row},${temp_col}"}) {
             if ($objects{"${row},${temp_col}"} =~ m/^[\@\[\]]$/) {
+                print "\tPushing ${row},${temp_col}\n" if $DEBUG;
                 push @queue, "${row},${temp_col}";
                 $temp_col += $col_delta;
             } else {
                 # Hit a wall
+                print "\tSplat!\n" if $DEBUG;
                 @queue = ();
                 last;
             }
         }
     } else {
+        print "Processing vertical ${movement}:\n" if $DEBUG;
         # Figure out what to move and put it in a queue
         my ($temp_row, @temp_cols) = ($row, $col);
       VERTICAL:
@@ -51,16 +68,19 @@ foreach my $movement (@movements) {
             foreach my $temp_col (@temp_cols) {
                 next if not defined $objects{"${temp_row},${temp_col}"};
                 if ($objects{"${temp_row},${temp_col}"} =~ m/^([\@\[\]])$/) {
+                    print "\tPushing ${temp_row},${temp_col}\n" if $DEBUG;
                     push @queue, "${temp_row},${temp_col}";
                     push @new_cols, $temp_col;
                     # Grab the other half of the box
                     if ($1 eq '[' or $1 eq ']') { # No regex; it'd reset $1
                         $temp_col += $1 eq '[' ? 1 : -1;
+                        print "\tPushing ${temp_row},${temp_col}\n" if $DEBUG;
                         push @queue, "${temp_row},${temp_col}";
                         push @new_cols, $temp_col;
                     }
                 } else {
                     # Hit a wall
+                    print "\tSplat!\n" if $DEBUG;
                     @queue = ();
                     last VERTICAL;
                 }
@@ -71,21 +91,26 @@ foreach my $movement (@movements) {
     }
 
     # Sometimes the vertical code will add things twice; compensate for that
+    print "\tQueue size before uniq: ", scalar(@queue), "\n" if $DEBUG;
     { my %seen; @queue = grep { !$seen{$_}++ } @queue; }
+    print "\tQueue size after uniq: ", scalar(@queue), "\n" if $DEBUG;
 
     # Process the queue
     while (@queue) {
         my $key = pop @queue;
         my $new_row = (split /,/, $key)[0] + $row_delta;
         my $new_col = (split /,/, $key)[1] + $col_delta;
+        print "\tMoving ${key} to ${new_row},${new_col}\n" if $DEBUG;
         $objects{"${new_row},${new_col}"} = $objects{$key};
         if ($objects{$key} eq '@') {    # The thing moving is the robot
+            print "\tMoving the robot.\n" if $DEBUG;
             $row = $new_row;
             $col = $new_col;
         }
         delete $objects{$key};
     }
 }
+&disp if $DEBUG;
 
 # Tally the score
 my $sum = 0;
