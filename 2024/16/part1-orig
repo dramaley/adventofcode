@@ -5,6 +5,10 @@ use strict;
 use warnings 'all';
 use Array::Heap::PriorityQueue::Numeric;
 
+# This is my first working solution. I later optimized it a bit, the result of
+# which is in the "part1" file.
+
+
 # Correlate direction (North = 0, East = 1, South = 2, West = 3) with what to
 # increment (row, column) by.
 our @movements = ([-1, 0],      # North, subtract one from row
@@ -38,17 +42,13 @@ while (my $entry = $pq->get()) {
         next;
     }
     # There are 3 possible moves from here: turn left, turn right, move forward
-    # Try turning left, but make sure there isn't a wall there first
+    # Try turning left
     my $new_dir = ($dir - 1) % 4;
-    my ($row_delta, $col_delta) = @{ $movements[$new_dir] };
     my $new_cost = $cost + 1000;    # Turning is expensive AF
-    $pq->add([ $row, $col, $new_dir, $new_cost ], $new_cost)
-        if $grid[$row + $row_delta][$col + $col_delta] ne '#';
+    $pq->add([ $row, $col, $new_dir, $new_cost ], $new_cost);
     # Try turning right
     $new_dir = ($dir + 1) % 4;
-    ($row_delta, $col_delta) = @{ $movements[$new_dir] };
-    $pq->add([ $row, $col, $new_dir, $new_cost ], $new_cost)
-        if $grid[$row + $row_delta][$col + $col_delta] ne '#';
+    $pq->add([ $row, $col, $new_dir, $new_cost ], $new_cost);
     # Try moving forward
     my $new_row = $row + $movements[$dir][0];
     my $new_col = $col + $movements[$dir][1];
