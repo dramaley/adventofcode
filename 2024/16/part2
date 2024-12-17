@@ -3,11 +3,75 @@
 use 5.8.1;
 use strict;
 use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+use Storable qw/dclone/; # Deep copy of data structures
 
+# Correlate direction (North = 0, East = 1, South = 2, West = 3) with what to
+# increment (row, column) by.
+our @movements = ([-1, 0],      # North, subtract one from row
+                  [0, 1],       # East, add one to column
+                  [1, 0],       # South, add one to row
+                  [0, -1]);     # West, subtract one from column
+our (@grid, $start_row, $start_col);
+our $start_dir = 1;     # North = 0, East = 1, South = 2, West = 3
 
+# Read input
+while (<>) {
+    chomp;
+    push @grid, [ split // ];
+    if (m/S/g) {        # Found the start position
+        $start_row = $. - 1;
+        $start_col = pos() - 1;
+    }
+}
 
-
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Let's solve this thing
+my $solution = ~0;                      # Assume infinity
+my %paths;
+my $pq = Array::Heap::PriorityQueue::Numeric->new();
+# The full state is: $row, $column, $direction, %path, $cost
+$pq->add([ $start_row, $start_col, $start_dir, {}, 0 ], 0);
+my %seen;
+while (my $entry = $pq->get()) {
+    my ($row, $col, $dir, $path, $cost) = @$entry;
+    my $seen_key = join(',', $row, $col, $dir);
+    if ($cost <= ($seen{$seen_key} // ~0)) {
+        $seen{$seen_key} = $cost;
+    } else {
+        next;
+    }
+    $$path{"${row},${col}"}++;
+    if ($grid[$row][$col] eq 'E') {     # Check if we solved it
+        $solution = $cost if $cost < $solution;
+        @paths{keys %$path} = ();
+        next;
+    }
+    next if $cost >= $solution;         # No point in continuing
+    # There are 3 possible moves from here: turn left, turn right, move forward
+    # Try turning left, but make sure there isn't a wall there first
+    my $new_dir = ($dir - 1) % 4;
+    my ($row_delta, $col_delta) = @{ $movements[$new_dir] };
+    my $new_cost = $cost + 1000;        # Turning is expensive AF
+    if ($new_cost < $solution and
+        $grid[$row + $row_delta][$col + $col_delta] ne '#') {
+        my $new_path = dclone($path);
+        $pq->add([ $row, $col, $new_dir, $new_path, $new_cost ], $new_cost);
+    }
+    # Try turning right
+    $new_dir = ($dir + 1) % 4;
+    ($row_delta, $col_delta) = @{ $movements[$new_dir] };
+    if ($new_cost < $solution and
+        $grid[$row + $row_delta][$col + $col_delta] ne '#') {
+        my $new_path = dclone($path);
+        $pq->add([ $row, $col, $new_dir, $new_path, $new_cost ], $new_cost);
+    }
+    # Try moving forward
+    my $new_row = $row + $movements[$dir][0];
+    my $new_col = $col + $movements[$dir][1];
+    if ($grid[$new_row][$new_col] ne '#') {
+        my $new_path = dclone($path);
+        $new_cost = $cost + 1;          # Moving forward is more economical
+        $pq->add([ $new_row, $new_col, $dir, $new_path, $new_cost ], $new_cost);
+    }
+}
+print scalar(keys %paths), "\n";
