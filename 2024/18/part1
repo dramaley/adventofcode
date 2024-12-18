@@ -3,11 +3,43 @@
 use 5.8.1;
 use strict;
 use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
 
+our ($max, $count);
+if (1) {                # True for real input, false for test input
+    $max = 70;          # Grid size
+    $count = 1024;      # How much of the input to process
+} else {
+    $max = 6;
+    $count = 12;
+}
 
+# Read input
+our @grid = map { [('.') x ($max + 1) ] } 0..$max;
+foreach (map { chomp; $_; } (<>)[0..$count-1]) {
+    my ($col, $row) = split /,/;
+    $grid[$row][$col] = '#';
+}
 
-
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Find the shortest path
+my $solution = ~0;                      # Assume infinity
+my $pq = Array::Heap::PriorityQueue::Numeric->new();
+$pq->add([ 0, 0, 0 ], 0); # Item is row, column, cost
+my %seen;
+while (my $entry = $pq->get()) {
+    my ($row, $col, $cost) = @$entry;
+    next if $seen{"${row},${col}"} // ~0 < $cost; # No point in continuing
+    $seen{"${row},${col}"} = $cost;
+    if ($row == $max and $col == $max) {        # Check for solution
+        $solution = $cost if $cost < $solution;
+        next;
+    }
+    # Try each direction from here
+    foreach ([$row, $col-1], [$row, $col+1], [$row-1, $col], [$row+1, $col]) {
+        my ($r, $c) = @$_;
+        next if $r < 0 or $r > $max or $c < 0 or $c > $max;
+        next if $grid[$r][$c] eq '#';
+        $pq->add([ $r, $c, $cost + 1 ], $cost + 1);
+    }
+}
+print "${solution}\n";

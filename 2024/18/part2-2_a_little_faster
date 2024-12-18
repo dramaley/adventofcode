@@ -4,13 +4,18 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 use Array::Heap::PriorityQueue::Numeric;
-use Storable qw/dclone/; # Deep copy of data structures
 
-our ($max, @grid);
+# This runs in about half the time as the initial Part 2 solution, by retaining
+# $count from Part 1 and dropping that many bytes right away before even trying
+# to solve.
+
+our ($max, $count, @grid);
 if (1) {                # True for real input, false for test input
     $max = 70;          # Grid size
+    $count = 1024;      # How much of the input to process
 } else {
     $max = 6;
+    $count = 12;
 }
 
 # Find the shortest path through the grid and return its length.
@@ -41,25 +46,15 @@ sub solver {
 
 # Read input
 @grid = map { [('.') x ($max + 1) ] } 0..$max;
-my @lines = map { chomp; [ split /,/ ]; } <>;
+while (my $line = <>) {
+    chomp $line;
+    my ($col, $row) = split /,/, $line;
+    $grid[$row][$col] = '#';
 
-# Try a binary search technique, dropping half of the bytes on the grid and
-# testing for solution, backing up if that was too much, and so on.
-my $grid_backup = dclone(\@grid);
-while ($#lines) {
-    my $halvsies = 2 ** int(log($#lines)/log(2));
-    foreach my $i (0..$halvsies-1) {    # Drop more bytes onto the grid
-        my ($col, $row) = @{ $lines[$i] };
-        $grid[$row][$col] = '#';
-    }
-    if (&solver == ~0) {                # Test if the grid is unsolvable
-        # Grid couldn't be solved, so backtrack
-        $#lines = $halvsies-1;
-        @grid = @{ dclone($grid_backup) };
-    } else {
-        # Grid is still solvable
-        splice @lines, 0, $halvsies;
-        $grid_backup = dclone(\@grid);
+    next if $. <= $count;       # Keep dropping bytes until $count have fallen
+
+    if (&solver == ~0) {
+        print "${line}\n";
+        last;
     }
 }
-print join(',', @{$lines[0]}), "\n";
