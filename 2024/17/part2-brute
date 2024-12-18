@@ -122,29 +122,13 @@ my ($orig_B, $orig_C) = ($B, $C);
 my @orig_pgm = @program;
 my $orig_pgm_str = join(',', @program);
 
-# Inspecting the input, the program forms a loop. On each iteration, it consumes
-# the last 3 bits of A and turns that into output. So, try all possibilities for
-# those 3 bits (aka, the number 0 through 7) and see if the output matches.
-# Shift any matches up by 3 bits (aka, multiply by 8) and try again to fill in
-# the next number. There may be multiple matches on each iteration, so save them
-# all as candidates and weed them out later if they don't work.
-
-my @candidates = (0);
-foreach (1..@orig_pgm) {
-    my @new_candidates = ();
-    foreach my $candidate (@candidates) {
-        foreach my $i (0..7) {
-            # Run the program with this input
-            ($A, $B, $C, $PC) = (8 * $candidate + $i, $orig_B, $orig_C, 0);
-            @program = @orig_pgm;
-            @output = ();
-            &{$opcodes[$program[$PC]]}($program[$PC+1]) while defined $program[$PC];
-            # If the output matched what we need, then save it as a candidate
-            my $match = join(',', @output);
-            push @new_candidates, (8 * $candidate + $i)
-                if $orig_pgm_str =~ m/${match}$/;
-        }
-    }
-    @candidates = sort { $a <=> $b } @new_candidates;
+# Brute force it
+my $i = -1;
+while ($orig_pgm_str ne join(',', @output)) {
+    $i++;
+    ($A, $B, $C, $PC) = ($i, $orig_B, $orig_C, 0);
+    @program = @orig_pgm;
+    @output = ();
+    &{$opcodes[$program[$PC]]}($program[$PC+1]) while defined $program[$PC];
 }
-print $candidates[0], "\n";
+print "${i}\n";

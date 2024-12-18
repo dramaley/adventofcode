@@ -4,10 +4,121 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# Variables for simulating a simple computer:
 
+our ($A, $B, $C);   # Normal registers
+our $PC = 0;        # Program Counter register
+our (@program);     # Code
+our (@output);      # Output will be collected here
 
+# ------------------------------------------------------------------------------
+#  Opcode 0: Division, with a twist.
+# ------------------------------------------------------------------------------
+sub adv {
+    my ($operand) = @_;
+    my $combo = &combo($operand);       # Get the combo operand
+    $A = int($A / 2 ** $combo);         # Do the funky division
+    $PC += 2;                           # Increment program counter
+}
 
+# ------------------------------------------------------------------------------
+#  Opcode 6: Sibling of adv, but store in register B
+# ------------------------------------------------------------------------------
+sub bdv {
+    my ($operand) = @_;
+    my $combo = &combo($operand);       # Get the combo operand
+    $B = int($A / 2 ** $combo);         # Do the funky division
+    $PC += 2;                           # Increment program counter
+}
 
+# ------------------------------------------------------------------------------
+#  Opcode 2: Modulo
+# ------------------------------------------------------------------------------
+sub bst {
+    my ($operand) = @_;
+    my $combo = &combo($operand);       # Get the combo operand
+    $B = $combo % 8;                    # Store the modulo in B
+    $PC += 2;                           # Increment program counter
+}
 
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# ------------------------------------------------------------------------------
+#  Opcode 4: Bitwise XOR
+# ------------------------------------------------------------------------------
+sub bxc {
+    $B ^= $C;                           # Bitwise XOR, registers B and C
+    $PC += 2;                           # Increment program counter
+}
+
+# ------------------------------------------------------------------------------
+#  Opcode 1: Bitwise XOR
+# ------------------------------------------------------------------------------
+sub bxl {
+    my ($operand) = @_;
+    $B ^= $operand;                     # Bitwise XOR with the literal operand
+    $PC += 2;                           # Increment program counter
+}
+
+# ------------------------------------------------------------------------------
+#  Opcode 7: Another sibling of adv, but store in register C
+# ------------------------------------------------------------------------------
+sub cdv {
+    my ($operand) = @_;
+    my $combo = &combo($operand);       # Get the combo operand
+    $C = int($A / 2 ** $combo);         # Do the funky division
+    $PC += 2;                           # Increment program counter
+}
+
+# ------------------------------------------------------------------------------
+#  Process "combo operands".
+# ------------------------------------------------------------------------------
+sub combo {
+    my ($operand) = @_;
+    return ($operand) if $operand >= 0 and $operand <= 3;
+    return ($A) if $operand == 4;
+    return ($B) if $operand == 5;
+    return ($C) if $operand == 6;
+    die "Invalid combo operand '${operand}'";
+}
+
+# ------------------------------------------------------------------------------
+#  Opcode 3: Jump, with some conditions
+# ------------------------------------------------------------------------------
+sub jnz {
+    my ($operand) = @_;
+    # If register A is non-zero, jump to the operand, else just increment the
+    # program counter like usual.
+    $PC = $A ? $operand : $PC + 2;
+}
+
+# ------------------------------------------------------------------------------
+#  Opcode 5: Generate output
+# ------------------------------------------------------------------------------
+sub out {
+    my ($operand) = @_;
+    my $combo = &combo($operand);       # Get the combo operand
+    $combo %= 8;                        # Modulo it
+    push @output, $combo;               # Save it
+    $PC += 2;                           # Increment program counter
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Map opcodes to instructions
+our @opcodes = (\&adv, \&bxl, \&bst, \&jnz,     # Opcodes 0-3
+                \&bxc, \&out, \&bdv, \&cdv);    # Opcodes 4-7
+
+# Read input
+foreach (map { chomp; $_; } <>) {
+    no strict 'refs';
+    # Symbolic references are generally bad. But just this once maybe it's OK...
+    /^Register ([ABC]): (\d+)$/ && do { $$1 = int $2; };
+    /^Program: ([\d,]+)$/ && do { @program = split /,/, $1 };
+}
+
+# Finally, the main event, actually run the program
+&{$opcodes[$program[$PC]]}($program[$PC+1]) while defined $program[$PC];
+
+# Display the output
+print join(',', @output), "\n";
