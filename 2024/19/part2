@@ -4,10 +4,39 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# Read the patterns
+our %patterns;
+{   my $line = <>;
+    chomp $line;
+    @patterns{split /, /, $line} = ();
+    $line = <>; # Consume the blank line
+}
 
+# Build a regex to match the patterns
+our $regex;
+{   my $keys = join('|', sort keys %patterns);
+    $regex = qr/^(?:${keys})+$/;
+}
 
+# Get a list of valid inputs
+our @lines = grep { m/${regex}/ } map { chomp; $_ } <>;
 
+# Solve it recursively, with memoization
+my %seen;
+sub count {
+    my ($line) = @_;
+    return $seen{$line} if exists $seen{$line};
+    return ($seen{$line} = 1) if not $line;
 
+    my $return = 0;
+    foreach my $match (keys %patterns) {
+        my $new = $line;
+        $return += &count($new) if $new =~ s/^${match}//;
+    }
+    $seen{$line} = $return;
+    return $return;
+}
 
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+my $count = 0;
+$count += $_ foreach map { &count($_) } @lines;
+print "${count}\n";

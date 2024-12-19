@@ -4,10 +4,20 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# Read the patterns
+our %patterns;
+{   my $line = <>;
+    chomp $line;
+    @patterns{split /, /, $line} = ();
+    $line = <>; # Consume the blank line
+}
 
+# Build a regex to match the patterns
+our $regex;
+{   my $keys = join('|', sort keys %patterns);
+    $regex = qr/^(?:${keys})+$/;
+}
 
-
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Read the rest of the file and process it
+my $count = grep { m/${regex}/m } <>;
+print "${count}\n";
