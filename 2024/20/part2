@@ -3,11 +3,83 @@
 use 5.8.1;
 use strict;
 use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+use Storable qw/dclone/; # Deep copy of data structures
 
+our (@grid, $start_row, $start_col);
 
+# ------------------------------------------------------------------------------
+#  Solve the maze, and return a list of coordinates along the path.
+#  Note that this solution borrows an algorithm from previous problems, but is
+#  not the fastest way to do it (this spends too much time in dclone).
+# ------------------------------------------------------------------------------
+sub solve {
+    my $solution = ~0;                      # Assume infinity
+    my $pq = Array::Heap::PriorityQueue::Numeric->new();
+    $pq->add([[$start_row, $start_col]], 0);
+    my %seen;
+    while (my $path = $pq->get()) {
+        my $cost = $#$path;
+        my ($row, $col) = @{$$path[-1]};
+        next if $seen{"${row},${col}"}++;               # We've been here before
+        next if $cost >= $solution;                     # No point in continuing
+        return $path if $grid[$row][$col] eq 'E';       # Check if we solved it
+        foreach ([0, -1], [0, 1], [-1, 0], [1, 0]) {    # Try moving every way
+            my ($row_delta, $col_delta) = @$_;
+            my $new_row = $row + $row_delta;
+            my $new_col = $col + $col_delta;
+            next if $seen{"${new_row},${new_col}"};     # Been there, done that
+            next if $grid[$new_row][$new_col] eq '#';   # Wall
+            my $new_path = dclone($path);
+            push @$new_path, [$new_row, $new_col];
+            $pq->add($new_path, $#$new_path);
+        }
+    }
+    die 'No solution';
+}
 
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
 
+# Read input
+while (<>) {
+    chomp;
+    push @grid, [ split // ];
+    if (m/S/g) {        # Found the start position
+        $start_row = $. - 1;
+        $start_col = pos() - 1;
+    }
+}
 
+# Get the path through the maze
+my @path = @{ &solve };
+# Associate grid location to path distance from the start
+my %loc2dist = map { (join(',', @{$path[$_]}), $_) } 0..$#path;
+# Search for *ahem* shortcuts
+my @deltas;     # First define the shortcut search area
+foreach my $row_delta (-20..20) {
+    my $extra = 20 - abs($row_delta);
+    push @deltas, (map { [$row_delta, $_] }
+                   grep { abs($row_delta) + abs($_) >= 2 }
+                   -$extra..$extra);
+}
+my %cheats;
+foreach (@path) {
+    my ($row, $col) = @$_;
+    my $distance = $loc2dist{"${row},${col}"};
+    foreach (@deltas) {
+        my ($row_delta, $col_delta) = @$_;
+        my $new_row = $row + $row_delta;
+        my $new_col = $col + $col_delta;
+        next if not exists $loc2dist{"${new_row},${new_col}"};  # Off track
+        my $new_distance = $loc2dist{"${new_row},${new_col}"};
+        my $saved = $new_distance - $distance - (abs($row_delta) + abs($col_delta));
+        $cheats{"${row},${col},${new_row},${new_col}"} = $saved
+            if $saved > 0;
+    }
+}
 
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Count how many cheats save at least 100 steps
+my $sum = grep { $cheats{$_} >= 100 } keys %cheats;
+print "${sum}\n";
