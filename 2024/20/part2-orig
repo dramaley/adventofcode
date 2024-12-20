@@ -6,8 +6,43 @@ use warnings 'all';
 use Array::Heap::PriorityQueue::Numeric;
 use Storable qw/dclone/; # Deep copy of data structures
 
-# Read input
 our (@grid, $start_row, $start_col);
+
+# ------------------------------------------------------------------------------
+#  Solve the maze, and return a list of coordinates along the path.
+#  Note that this solution borrows an algorithm from previous problems, but is
+#  not the fastest way to do it (this spends too much time in dclone).
+# ------------------------------------------------------------------------------
+sub solve {
+    my $solution = ~0;                      # Assume infinity
+    my $pq = Array::Heap::PriorityQueue::Numeric->new();
+    $pq->add([[$start_row, $start_col]], 0);
+    my %seen;
+    while (my $path = $pq->get()) {
+        my $cost = $#$path;
+        my ($row, $col) = @{$$path[-1]};
+        next if $seen{"${row},${col}"}++;               # We've been here before
+        next if $cost >= $solution;                     # No point in continuing
+        return $path if $grid[$row][$col] eq 'E';       # Check if we solved it
+        foreach ([0, -1], [0, 1], [-1, 0], [1, 0]) {    # Try moving every way
+            my ($row_delta, $col_delta) = @$_;
+            my $new_row = $row + $row_delta;
+            my $new_col = $col + $col_delta;
+            next if $seen{"${new_row},${new_col}"};     # Been there, done that
+            next if $grid[$new_row][$new_col] eq '#';   # Wall
+            my $new_path = dclone($path);
+            push @$new_path, [$new_row, $new_col];
+            $pq->add($new_path, $#$new_path);
+        }
+    }
+    die 'No solution';
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Read input
 while (<>) {
     chomp;
     push @grid, [ split // ];
@@ -17,44 +52,10 @@ while (<>) {
     }
 }
 
-# Solve the maze, retaining the path info
-# @path is a list of coordinates that make up the path.
-# %loc2dist associates each coordinate with the cost to get there.
-our (@path, %loc2dist);
-{   my $solution = ~0;                      # Assume infinity
-    my $pq = Array::Heap::PriorityQueue::Numeric->new();
-    my %seen = ("${start_row},${start_col}" => 'start');
-    $pq->add([$start_row, $start_col, 0], 0);
-    my ($row, $col, $cost);
-    while (my $entry = $pq->get()) {
-        ($row, $col, $cost) = @$entry;
-        next if $cost >= $solution;                     # No point in continuing
-        last if $grid[$row][$col] eq 'E';               # Solved it!
-        foreach ([0, -1], [0, 1], [-1, 0], [1, 0]) {    # Try moving every way
-            my ($row_delta, $col_delta) = @$_;
-            my $new_row = $row + $row_delta;
-            my $new_col = $col + $col_delta;
-            next if $seen{"${new_row},${new_col}"};     # Been there, done that
-            next if $grid[$new_row][$new_col] eq '#';   # Wall
-            $seen{"${new_row},${new_col}"} = "${row},${col}";
-            my $new_cost = $cost + 1;
-            $pq->add([$new_row, $new_col, $new_cost], $new_cost);
-        }
-    }
-
-    # Now trace backwards in order to build the path
-    my $last = "${row},${col}";
-    do {
-        # Save info for this location
-        $loc2dist{$last} = $cost;
-        unshift @path, [$row, $col];
-        # Backtrack to the previous location
-        $last = $seen{$last};
-        ($row, $col) = split ',', $last;
-        $cost--;
-    } until $last eq 'start';
-}
-
+# Get the path through the maze
+my @path = @{ &solve };
+# Associate grid location to path distance from the start
+my %loc2dist = map { (join(',', @{$path[$_]}), $_) } 0..$#path;
 # Search for *ahem* shortcuts
 my @deltas;     # First define the shortcut search area
 foreach my $row_delta (-20..20) {
