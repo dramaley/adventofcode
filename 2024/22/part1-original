@@ -4,17 +4,18 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# Direct translation of the problem description. Works great, but kind of slow.
+
 # ------------------------------------------------------------------------------
-#  Evolve a secret into the next secret, using bitwise operators
+#  Implementation of the trivial formulae
 # ------------------------------------------------------------------------------
+sub mix { $_[0] ^ $_[1] }
+sub prune { $_[0] % 16777216 }
 sub evolve {
     my ($secret) = @_;
-    $secret ^= $secret << 6;
-    $secret &= 16777215;
-    $secret ^= $secret >> 5;
-    $secret &= 16777215;
-    $secret ^= $secret << 11;
-    $secret &= 16777215;
+    $secret = &prune(&mix($secret, $secret * 64));
+    $secret = &prune(&mix($secret, int($secret / 32)));
+    $secret = &prune(&mix($secret, $secret * 2048));
     return $secret;
 }
 

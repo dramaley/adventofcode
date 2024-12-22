@@ -4,10 +4,56 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# ------------------------------------------------------------------------------
+#  Evolve a secret into the next secret, using bitwise operators
+# ------------------------------------------------------------------------------
+sub evolve {
+    my ($secret) = @_;
+    $secret ^= $secret << 6;
+    $secret &= 16777215;
+    $secret ^= $secret >> 5;
+    $secret &= 16777215;
+    $secret ^= $secret << 11;
+    $secret &= 16777215;
+    return $secret;
+}
 
+# ------------------------------------------------------------------------------
+#  Functions with obvious names
+# ------------------------------------------------------------------------------
+sub sum { my $val = shift; $val += $_ foreach @_; return $val; }
 
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
 
+# Build up a layered hash that contains the results of negotiations. Outer key
+# is the history of 4 most-recent price changes, inner key is the initial secret
+# that led there, and the value is the negotiated price.
+our %negotiation;
+foreach my $initial_secret (map { chomp; $_; } <>) {
+    my $secret = $initial_secret;
+    my $previous = $secret % 10;
+    my @delta = ();
+    foreach (1..2000) {
+        # Generate the next secret
+        $secret = &evolve($secret);
+        # Save the price in the queue
+        my $price = $secret % 10;
+        push @delta, ($price-$previous);
+        $previous = $price;
+        # Figure out negotiated price once there's enough history in the queue
+        if (@delta == 4) {
+            $negotiation{join(',', @delta)}{$initial_secret} //= $price;
+            shift @delta;
+        }
+    }
+}
 
+# Process the negotiations into a total count and find the best
+my %prices = map { $_ => &sum(values %{$negotiation{$_}}) } keys %negotiation;
+my $best = (sort { $prices{$a} <=> $prices{$b} } keys %prices)[-1];
+print $prices{$best}, "\n";
 
 #use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+#print Data::Dumper->Dump([\%prices], ['*prices']);
