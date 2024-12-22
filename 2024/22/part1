@@ -4,10 +4,22 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# ------------------------------------------------------------------------------
+#  Implementation of the trivial formulae
+# ------------------------------------------------------------------------------
+sub mix { $_[0] ^ $_[1] }
+sub prune { $_[0] % 16777216 }
+sub evolve {
+    my ($secret) = @_;
+    $secret = &prune(&mix($secret, $secret * 64));
+    $secret = &prune(&mix($secret, int($secret / 32)));
+    $secret = &prune(&mix($secret, $secret * 2048));
+    return $secret;
+}
 
-
-
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+my $sum = 0;
+foreach my $secret (map { chomp; $_; } <>) {
+    $secret = &evolve($secret) for 1..2000;
+    $sum += $secret
+}
+print "${sum}\n";
