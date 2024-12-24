@@ -1,13 +1,45 @@
 #!/usr/bin/perl
 
-use 5.8.1;
+use 5.14.1;
 use strict;
 use warnings 'all';
+use experimental 'smartmatch';
+
+# ------------------------------------------------------------------------------
+#  Return combinations given a list and number of elements to include in each
+# ------------------------------------------------------------------------------
+sub combination {
+    my ($list, $n) = @_;
+    die 'Insufficient list members' if $n > @$list;
+    return map { [$_] } @$list if $n <= 1;
+    my @comb;
+    for (my $i = 0; $i+$n <= @$list; ++$i) {
+        my $val  = $$list[$i];
+        my @rest = @$list[$i+1..$#$list];
+        push @comb, [$val, @$_] foreach &combination(\@rest, $n-1);
+    }
+    return @comb;
+}
 
 
+my %network;
+foreach (map { chomp; $_ } <>) {
+    my ($one, $two) = split /-/;
+    push @{$network{$one}}, $two;
+    push @{$network{$two}}, $one;
+}
 
-
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+my %triplets;
+$triplets{$_}++ foreach (map { join(',', @$_) }
+                         grep { ($$_[0] =~ /^t/ or
+                                 $$_[1] =~ /^t/ or
+                                 $$_[2] =~ /^t/) }
+                         grep { ($$_[0] ~~ @{$network{$$_[1]}} and
+                                 $$_[1] ~~ @{$network{$$_[2]}} and
+                                 $$_[2] ~~ @{$network{$$_[0]}}) }
+#                         sort { ($$a[0] cmp $$b[0] or   # Sorting unnecessary
+#                                 $$a[1] cmp $$b[1] or   # but makes debugging
+#                                 $$a[2] cmp $$b[2]) }   # easier
+                         map { [ sort @$_ ] }
+                         &combination([ keys %network ], 3));
+print scalar(keys %triplets), "\n";

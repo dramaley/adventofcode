@@ -4,10 +4,61 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our %graph;             # Calling it graph to align with math terminology
 
+# ------------------------------------------------------------------------------
+#  Bron–Kerbosch algorithm for finding complete subgraphs (aka "cliques").
+#  This function tries to follow the algorithm closely.
+#  See: https://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm
+# ------------------------------------------------------------------------------
+sub bronkerbosch {
+    my ($R, $P, $X) = @_;               # Result, Possibilities, eXcludes
+    my @return;
+    # P and X both empty implies a clique; use [ @$R ] to force a copy.
+    return [ @$R ] if not @$P and not @$X;
 
+    foreach my $v (@$P) {               # Try each vertex
+        my @R_union_v = (@$R, $v);
 
+        # Intersection of P with v's neighbors
+        my @p_inter_Nv = &intersection($P, $graph{$v});
+        # Intersection of X with v's neighbors
+        my @x_inter_Nv = &intersection($X, $graph{$v});
+
+        push(@return, &bronkerbosch(\@R_union_v, \@p_inter_Nv, \@x_inter_Nv) );
+
+        @$P = grep { $_ ne $v } @$P;    # Symmetric difference: P \ v
+        @$X = (@$X, $v);                # eXcludes union v
+    }
+    return @return;
+}
+
+# ------------------------------------------------------------------------------
+#  Calculate the intersection of 2 lists. Lists may contain duplicates.
+# ------------------------------------------------------------------------------
+sub intersection {
+    my ($a, $b) = @_;
+    return (grep { my $a = $_; grep { $_ eq $a } @$b } @$a);
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Read input
+foreach (map { chomp; $_ } <>) {
+    my ($one, $two) = split /-/;
+    push @{$graph{$one}}, $two;
+    push @{$graph{$two}}, $one;
+}
+
+# Find all the cliques
+my @cliques = &bronkerbosch([], [keys %graph], []);
+# Now find the big one
+my $big = (sort { @$a <=> @$b } @cliques)[-1];
+# And print it
+print join(',', sort @$big), "\n";
 
 
 #use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+#print Data::Dumper->Dump([$big], ['*big']);
