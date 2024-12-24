@@ -4,10 +4,157 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# ------------------------------------------------------------------------------
+#  Initialization
+# ------------------------------------------------------------------------------
 
+our @pad_door = ([    7, 8, 9],         # Layout of the door keypad
+                 [    4, 5, 6],
+                 [    1, 2, 3],
+                 [undef, 0, 'A']);
+our @pad_dir = ([undef, '^', 'A'],      # Layout of a directional keypad
+                [  '<', 'v', '>']);
 
+# Get the distances to move among the keys on the 2 types of keypads
+our %door_moves = %{ &keypad_moves(@pad_door) };
+our %dir_moves  = %{ &keypad_moves(@pad_dir) };
 
+# ------------------------------------------------------------------------------
+#  Trivial functions with obvious names
+# ------------------------------------------------------------------------------
+sub min { return (sort { $a <=> $b } @_)[0]; }
+sub uniq { my %seen; return grep { !$seen{$_}++ } @_; }
 
+# ------------------------------------------------------------------------------
+#  Take a keypad and figure out a mapping, what moves it takes to go from any
+#  key to any other key.
+# ------------------------------------------------------------------------------
+sub keypad_moves {
+    my (@pad) = @_;
+    # Figure out each key's coordinate on the keypad
+    my %key2map;
+    foreach my $row (0..$#pad) {
+        foreach my $col (0..$#{$pad[$row]}) {
+            $key2map{ $pad[$row][$col] } = [$row, $col]
+                if defined $pad[$row][$col];
+        }
+    }
+    # Figure out how many movements it takes to get from a key to any other key
+    my %movements;
+    my @horiz = ('<', '', '>');
+    my @vert = ('^', '', 'v');
+    foreach my $src (keys %key2map) {
+        my ($s_row, $s_col) = @{ $key2map{$src} };
+        foreach my $dst (keys %key2map) {
+            my ($d_row, $d_col) = @{ $key2map{$dst} };
+            # Determine horizontal movement
+            my $h_dir = $horiz[1 + ($d_col <=> $s_col)];        # Direction
+            my $h_mag = abs($d_col-$s_col);                     # Magnitude
+            my $h = ($h_dir) x $h_mag;                          # Combined
+            # Determine vertical movement
+            my $v_dir = $vert[1 + ($d_row <=> $s_row)];
+            my $v_mag = abs($d_row-$s_row);
+            my $v = ($v_dir) x $v_mag;
+            # Find all valid orderings of the movements
+            my (@valid) = (
+                # Add 'A' to the end of each sequence
+                map { $_ . 'A' }
+                # Select only valid sequences
+                grep { &keypad_moves_verifier(\@pad, $s_row, $s_col, $_) }
+                # Generate all possible permutations of the moves
+                &uniq(map { join('', @$_) } &permute(split //, "${h}${v}"))
+                );
+            # $try[0] contains the valid movements, and "A' to commit them
+            $movements{"${src}${dst}"} = \@valid;
+        }
+    }
+    return \%movements;
+}
 
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Helper function that takes a keypad reference, start position (row,col), and
+# a sequence of moves, returning whether the moves are valid.
+sub keypad_moves_verifier {
+    my ($pad, $row, $col, $moves) = @_;
+    my %delta = ('<' => [0, -1], '>' => [0, 1], '^' => [-1, 0], 'v' => [1, 0]);
+    foreach (map { $delta{$_} } split //, $moves) {
+        # Follow each sequence of moves
+        my ($delta_row, $delta_col) = @$_;
+        $row += $delta_row; $col += $delta_col;
+        # Return false if an invalid location was traversed
+        return 0 if not defined $$pad[$row][$col];
+    }
+    # Sequence was valid
+    return 1;
+}
+
+# ------------------------------------------------------------------------------
+#  Recursively figure out how to type codes on the keypad. Takes current
+#  recursion depth and the codes to press.
+# ------------------------------------------------------------------------------
+{   my $robots = 2;     # How many robots are in the way
+    my %seen;           # Memoization stuff
+
+    sub keypad {
+        my ($depth, $code) = @_;
+        return $seen{"${depth},${code}"} if exists $seen{"${depth},${code}"};
+
+        my @codes = ('A', split //, $code); # Add 'A' as the startpoint
+        # Reference to which moves to perform, door keypad or directional keypad
+        my $moves_ref = $depth ? \%dir_moves : \%door_moves;
+
+        # There are ways to wrap this up so it'd be shorter. This more verbose
+        # code is easier to follow and debug though.
+        my $moves = 0;
+        if ($depth == $robots) {
+            my $one = shift @codes;
+            while (@codes) {
+                my $two = shift @codes;
+                $moves += length ${$moves_ref}{"${one}${two}"}[0];
+                $one = $two;
+            }
+        } else {
+            my $one = shift @codes;
+            while (@codes) {
+                my $two = shift @codes;
+                $moves += &min(map { &keypad($depth + 1, $_) }
+                               @{${$moves_ref}{"${one}${two}"}});
+                $one = $two;
+            }
+        }
+        $seen{"${depth},${code}"} = $moves;
+        return $moves;
+    }
+}
+
+# ------------------------------------------------------------------------------
+#  Given a list of items, return all permutations.
+#  Ref: https://stackoverflow.com/questions/635768/how-can-i-generate-all-perm
+#       utations-of-an-array-in-perl
+# ------------------------------------------------------------------------------
+sub permute {
+    return [@_] if @_ <= 1;
+    map { my ($f, @r) = &list_with_x_first($_, @_);
+          map [$f, @$_], &permute(@r);
+    } 0..$#_;
+}
+sub list_with_x_first {
+    return if @_ == 1;
+    my $i = shift;
+    @_[$i, 0..$i-1, $i+1..$#_];
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Read input
+my $sum = 0;
+foreach my $code (map { chomp; $_; } <>) {
+    my $multiplier = $code;             # Save the numerical part for later
+    {   no warnings 'numeric';          # Suppress warning on the next statement
+        $multiplier += 0;               # Convert to integer
+    }
+    my $moves = &keypad(0, $code);      # Convert the code into movements
+    $sum += $moves * $multiplier;
+}
+print "${sum}\n";
