@@ -4,10 +4,34 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our (@keys, @locks, $max_length);
 
+$/ = "\n\n";                            # Cheap parser
+while (<>) {
+    my (@lines) = split /\n/;
+    my $storage;
+    if ($lines[0] =~ /^#+$/) {          # Lock or key?
+        shift @lines;
+        $storage = \@locks;
+    } else {
+        pop @lines;
+        $storage = \@keys;
+    }
+    $max_length //= $#lines;            # How long the pins can be
 
+    # Count how long each pin is
+    my (@pins) = (0) x length $lines[0];
+    foreach (@lines) {
+        $pins[pos]++ while m/(?=#)/g;
+    }
+    push @$storage, \@pins;
+}
 
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Try each key in each lock, keep a count of how many fit
+my $fits = 0;
+foreach my $lock (@locks) {
+    foreach my $key (@keys) {
+        $fits++ if not grep { $$lock[$_] + $$key[$_] > $max_length } 0..$#$key;
+    }
+}
+print "${fits}\n";
