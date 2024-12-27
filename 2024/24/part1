@@ -4,10 +4,42 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+our (@rules, %state);
+our %f = ('AND' => sub { $_[0] & $_[1] },
+          'OR'  => sub { $_[0] | $_[1] },
+          'XOR' => sub { $_[0] ^ $_[1] });
 
+# Read input
+while (<>) {
+    chomp;
+    last if not /^(\w+): (\d)$/;
+    $state{$1} = int $2;
+}
+while (<>) {
+    chomp;
+    die 'Input error' if not m/^(\w+) (AND|OR|XOR) (\w+) -> (\w+)$/;
+    push @rules, [ $1, $2, $3, $4 ];
+}
 
+# Run simulation
+my $i = 0;
+while (@rules) {
+    $i %= @rules;
+    my ($input1, $op, $input2, $output) = @{ $rules[$i] };
+    if (defined $state{$input1} and defined $state{$input2}) {
+        # Process this rule, then discard it
+        $state{$output} = &{$f{$op}}($state{$input1}, $state{$input2});
+        splice @rules, $i, 1;
+        next;
+    }
+    $i++;
+}
 
-
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+# Compute result
+my $sum;
+foreach my $key (sort grep { /^z/ } keys %state) {
+    my $val = $state{$key};
+    $key =~ s/^z//;
+    $sum += $val * 2 ** int($key);
+}
+print "${sum}\n";
