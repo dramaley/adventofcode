@@ -1,0 +1,34 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %grid;
+
+# Mapping from up/down/left/right indicators to row/column deltas
+our %deltas = ('U' => [-1, 0], 'D' => [1, 0], 'L' => [0, -1], 'R' => [0, 1]);
+
+foreach my $line (map { chomp; $_ } <>) {
+    # Starting from the origin
+    my ($row, $col) = (0, 0);
+    # Loop over each instruction
+    foreach my $instr (split /,/, $line) {
+        die if not $instr =~ m/^([UDLR])(\d+)$/;
+        my ($row_delta, $col_delta) = @{$deltas{$1}};
+        my $magnitude = $2;
+        foreach (1..$magnitude) {
+            $row += $row_delta;
+            $col += $col_delta;
+            $grid{"${row},${col}"}++;
+        }
+    }
+}
+
+print(( sort { $a <=> $b }      # Numeric sort
+        map { $$_[0] + $$_[1] } # Manhattan distance
+        map { [ split /,/ ] }   # Separate the coordinates
+        map { s/-//g; $_ }      # Ignore negative signs
+        grep { $grid{$_} > 1 }  # Find crossed paths
+        keys %grid )[0],        # "[0]" takes the lowest of the sorted list
+      "\n");

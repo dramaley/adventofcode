@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our @paths;
+our @distances;
+
+# Mapping from up/down/left/right indicators to row/column deltas
+our %deltas = ('U' => [-1, 0], 'D' => [1, 0], 'L' => [0, -1], 'R' => [0, 1]);
+
+# ------------------------------------------------------------------------------
+#  Calculate the intersection of 2 lists. Lists cannot have duplicate entries.
+# ------------------------------------------------------------------------------
+sub intersection {
+    my ($a, $b) = @_;
+    my (%isect, %union);
+    foreach my $e (@$a, @$b) { $union{$e}++ && $isect{$e}++ }
+    return keys %isect;
+}
+
+# ------------------------------------------------------------------------------
+#  Calculate the sum of a list of numbers
+# ------------------------------------------------------------------------------
+sub sum { my $sum = 0; $sum += $_ foreach @_; return $sum; }
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+my @lines = map { chomp; $_ } <>;
+for (my $i = 0; $i < @lines; $i++) {
+    # Starting from the origin
+    my ($row, $col, $distance) = (0, 0, 0);
+    # Loop over each instruction
+    foreach my $instr (split /,/, $lines[$i]) {
+        die if not $instr =~ m/^([UDLR])(\d+)$/;
+        my ($row_delta, $col_delta) = @{$deltas{$1}};
+        my $magnitude = $2;
+        foreach (1..$magnitude) {
+            $row += $row_delta;
+            $col += $col_delta;
+            $paths[$i]{"${row},${col}"}++;
+            $distance++;
+            $distances[$i]{"${row},${col}"} //= $distance;
+        }
+    }
+}
+
+# Find the intersections of the 2 paths; then for each coordinate where they
+# cross, sum the distances to get there; then sort numerically and take the
+# lowest value.
+print(( sort { $a <=> $b }
+        map { my $i = $_; &sum(map { $$_{$i} } @distances); }
+        &intersection(map { [ keys %$_ ] } @paths) )[0], "\n");
