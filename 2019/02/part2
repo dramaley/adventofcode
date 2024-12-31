@@ -1,0 +1,34 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+sub run {
+    my ($pgm) = @_;
+
+    my $addr = 0;
+    while ($$pgm[$addr] != 99) {
+        my $opcode = $$pgm[$addr];
+        my ($param1, $param2, $param3) = @$pgm[$addr+1..$addr+3];
+        if ($opcode == 1) {
+            $$pgm[$param3] = $$pgm[$param1] + $$pgm[$param2];
+        } elsif ($opcode == 2) {
+            $$pgm[$param3] = $$pgm[$param1] * $$pgm[$param2];
+        }
+        $addr += 4;
+    }
+    return $$pgm[0];
+}
+
+my (@program) = map { int } split /,/, <>;
+for my $noun (0..99) {
+    for my $verb (0..99) {
+        my (@copy) = (@program);
+        @copy[1,2] = ($noun, $verb);
+        if (&run(\@copy) == 19690720) {
+            print 100 * $noun + $verb, "\n";
+            exit;
+        }
+    }
+}

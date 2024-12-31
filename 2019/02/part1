@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my (@program) = map { int } split /,/, <>;
+
+@program[1,2] = (12, 2);
+
+my $addr = 0;
+while ($program[$addr] != 99) {
+    my $opcode = $program[$addr];
+    my ($param1, $param2, $param3) = @program[$addr+1..$addr+3];
+    if ($opcode == 1) {
+        $program[$param3] = $program[$param1] + $program[$param2];
+    } elsif ($opcode == 2) {
+        $program[$param3] = $program[$param1] * $program[$param2];
+    }
+    $addr += 4;
+}
+print $program[0], "\n";
