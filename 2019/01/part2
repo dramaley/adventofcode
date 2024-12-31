@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+sub calc { int($_[0] / 3) - 2; }
+
+my $sum = 0;
+foreach my $fuel (map { &calc($_) } <>) {
+    do {
+        $sum += $fuel;
+        $fuel = &calc($fuel);
+    } while $fuel > 0;
+}
+print "${sum}\n";

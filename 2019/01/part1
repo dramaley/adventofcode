@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $sum = 0;
+$sum += $_ foreach map { int($_ / 3) - 2 } <>;
+print "${sum}\n";
