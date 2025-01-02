@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our ($lower, $upper) = map { chomp; split /-/ } <>;
+
+my $count = 0;
+foreach ($lower..$upper) {
+    s/(\d)\1{2,}/$1/g;                      # Collapse 3+ repeated digits to 1
+    next if not m/(\d)\1+/;                 # 2 adjacent digits are the same
+    next if not m/^0*1*2*3*4*5*6*7*8*9*$/;  # Digits must not descend
+    $count++;
+}
+print "${count}\n";
