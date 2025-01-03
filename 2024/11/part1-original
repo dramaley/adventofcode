@@ -4,8 +4,7 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
-our %stones;
-$stones{$_}++ foreach map { chomp; split / /; } <>;
+my (@stones) = map { chomp; split / /; } <>;
 
 sub mapping {
     my ($stone) = @_;
@@ -19,13 +18,7 @@ sub mapping {
 }
 
 foreach (1..25) {
-    my %next;
-    foreach my $key (keys %stones) {
-        $next{$_} += $stones{$key} foreach map { &mapping($_) } $key;
-    }
-    %stones = %next;
+    @stones = map { &mapping($_) } @stones;
 }
 
-my $count = 0;
-$count += $_ foreach values %stones;
-print "${count}\n";
+print scalar(@stones), "\n";
