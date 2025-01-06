@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+sub run {
+    my ($pgm, $input) = @_;
+
+    my (@modes, @output);
+    my $addr = 0;
+
+    # Function to handle parameter modes
+    my $pmode = sub {
+        my ($moderef, $param) = @_;
+        my $mode = $modes[$moderef] // 0;   # Look up the mode
+        if ($mode == 0) {
+            return $$pgm[$param];           # "Position mode"
+        } elsif ($mode == 1) {
+            return $param;                  # "Immediate mode"
+        } else {
+            die "Bad mode: \"${mode}\"";
+        }
+    };
+
+    # Mapping of opcodes to implementation.
+    my @opcodes = (
+        # There is no opcode 0
+        undef,
+        # Opcode 1, addition
+        sub { $$pgm[$_[2]] = &$pmode(0,$_[0]) + &$pmode(1,$_[1]); $addr += 4; },
+        # Opcode 2, multiplication
+        sub { $$pgm[$_[2]] = &$pmode(0,$_[0]) * &$pmode(1,$_[1]); $addr += 4; },
+        # Opcode 3, input
+        sub { $$pgm[$_[0]] = $input; $addr += 2; },
+        # Opcode 4, output
+        sub { push @output, &$pmode(0,$_[0]); $addr += 2; }
+        );
+
+    while ($$pgm[$addr] != 99) {
+        my $opcode = $$pgm[$addr];
+
+        # Parse the parameter modes
+        @modes = split //, reverse int($opcode / 100);
+        $opcode %= 100;
+
+        # Get parameters
+        my (@params) = @$pgm[$addr+1..$addr+3];
+
+        &{$opcodes[$opcode]}(@params);
+    }
+    return @output;
+}
+
+
+my (@program) = map { int } split /,/, <>;
+my (@output) = &run(\@program, 1);
+print $output[-1], "\n";
