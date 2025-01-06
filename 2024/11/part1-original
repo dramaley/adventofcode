@@ -4,21 +4,32 @@ use 5.8.1;
 use strict;
 use warnings 'all';
 
+# Read input into @stones
 my (@stones) = map { chomp; split / /; } <>;
 
 sub mapping {
     my ($stone) = @_;
     my $len = length($stone);
 
+    # If this stone is 0, turn it into 1.
     $stone == 0   and do { return 1; };
+    # If this stone has an even number of digits (aka, length is divisible
+    # by 2), then take the first half of the digits and store in $one, the
+    # second half in $two, and return those. Note that there's an easier
+    # way to split the digits if a base 10 logarithm function is available,
+    # but Perl (without loading libraries) is lacking that, and i didn't
+    # feel like cobbling one together from the base e logarithm function.
     $len % 2 == 0 and do { my $one = int($stone / 10**($len/2));
                            my $two = $stone - $one * 10**($len/2);
                            return ($one, $two); };
+    # If all else fails, take the stone and multiply it by 2024.
     return $stone * 2024;
 }
 
+# Run the &mapping function over each stone in the @stones array, 25 times
 foreach (1..25) {
     @stones = map { &mapping($_) } @stones;
 }
 
+# Print how many @stones we have
 print scalar(@stones), "\n";
