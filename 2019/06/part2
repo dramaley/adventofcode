@@ -1,0 +1,36 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Associate each object with its parent (i.e., the object it orbits)
+our %parent = map { chomp; reverse split /\)/; } <>;
+
+# Figure out the number of transfers from "YOU" back to the origin, "COM".
+our %transfers;
+{   my $orbit = $parent{'YOU'};
+    %transfers = ($orbit => 0);
+    while (exists $parent{$orbit}) {
+        my $cost = $transfers{$orbit};
+        $orbit = $parent{$orbit};
+        $transfers{$orbit} = $cost + 1;
+    }
+}
+
+# Now figure out the transfers from "SAN" to "COM", stopping when an
+# intersection with the transfers from "YOU" is found.
+our $answer;
+{   my $orbit = $parent{'SAN'};
+    my $cost = 0;
+    while (exists $parent{$orbit}) {
+        if (exists $transfers{$orbit}) {
+            $answer = $transfers{$orbit} + $cost;
+            last;
+        }
+        $orbit = $parent{$orbit};
+        $cost++;
+    }
+}
+
+print "${answer}\n";

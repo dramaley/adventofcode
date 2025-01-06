@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Associate each object with its parent (i.e., the object it orbits)
+our %parent = map { chomp; reverse split /\)/; } <>;
+
+# ------------------------------------------------------------------------------
+#  Count the path length from a given object back to the origin (COM)
+# ------------------------------------------------------------------------------
+{   my %cache = ('COM' => 0);
+    no warnings 'recursion';    # Need to go deep on this one
+    sub path_len {
+        my ($obj) = @_;
+        return $cache{$obj} if exists $cache{$obj};
+        return 1 + &path_len($parent{$obj});
+    }
+}
+
+my $sum = 0;
+$sum += &path_len($_) foreach keys %parent;
+print "${sum}\n";
