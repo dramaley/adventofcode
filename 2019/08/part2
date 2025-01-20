@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $width = 25;
+our $height = 6;
+our $length = $width * $height;
+
+my @image;
+foreach (map { unpack "(a${length})*" } map { chomp; $_} <>) {
+    my @pixels = map { ${{0 => 0, 1 => 1}}{$_} } split //;
+    $image[$_] //= $pixels[$_] foreach 0..$#pixels;
+}
+print(map { "$_\n" }
+      map { tr/01/ #/; $_ }
+      unpack "(a${width})*",
+      join('', @image));

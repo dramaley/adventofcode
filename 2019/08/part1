@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our $width = 25;
+our $height = 6;
+
+our $length = $width * $height;
+
+my $fewest_zeroes = (
+    sort { scalar(() = $a =~ /0/g) <=> scalar(() = $b =~ /0/g) }
+    map { unpack "(a${length})*" }
+    map { chomp; $_} <>
+    )[0];
+
+my $ones = () = $fewest_zeroes =~ /1/g;
+my $twos = () = $fewest_zeroes =~ /2/g;
+
+print $ones * $twos, "\n";
