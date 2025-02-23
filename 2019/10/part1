@@ -1,0 +1,66 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %asteroids;
+
+# ------------------------------------------------------------------------------
+#  Greatest common divisor using the Euclidean algorithm. Assumes 2 integer
+#  arguments.
+# ------------------------------------------------------------------------------
+sub gcd {
+    # Division-based version
+    my ($a, $b) = @_;
+    ($a, $b) = ($b, $a % $b) while $b != 0;
+    return abs($a);
+
+    # Subtraction-based version
+#    my ($a, $b) = map { abs $_ } @_;
+#    return $a if $b == 0;
+#    return $b if $a == 0;
+#    while ($a != $b) {
+#        $a -= $b if $a > $b;
+#        $b -= $a if $b > $a;
+#    }
+#    return $a;
+}
+
+
+# Read asteroid positions
+while (<>) {
+    $asteroids{join(',', $.-1, pos()-1)} = () while m/#/g;
+}
+
+# Test each asteroid as the monitoring station (scanning source)
+my $best = 0;
+foreach my $src (keys %asteroids) {
+    my ($src_row, $src_col) = split /,/, $src;
+    # Check each other asteroid and see if it is visible
+    my $count = 0;
+    foreach my $dst (keys %asteroids) {
+        next if $src eq $dst;
+        my ($dst_row, $dst_col) = split /,/, $dst;
+        my $delta_row = $dst_row - $src_row;
+        my $delta_col = $dst_col - $src_col;
+        my $gcd = &gcd($delta_row, $delta_col);
+        $delta_row /= $gcd;
+        $delta_col /= $gcd;
+        # On a line from $src to $dst, check for collisions with other asteroids
+        my $collision = 0;
+        my ($row, $col) = ($src_row + $delta_row, $src_col + $delta_col);
+        while ($row != $dst_row or $col != $dst_col) {
+            if (exists $asteroids{"${row},${col}"}) {
+                $collision++;
+                last;
+            }
+            $row += $delta_row;
+            $col += $delta_col;
+        }
+        # No collisions, so this one counts as visible
+        $count++ if not $collision;
+    }
+    $best = $count if $count > $best;
+}
+print "${best}\n";

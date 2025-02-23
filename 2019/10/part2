@@ -1,0 +1,143 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %asteroids;
+our $VERBOSE = 1;
+
+# ------------------------------------------------------------------------------
+#  Find the angle between 2 points. atan2() gives θ. But the polar coordinates
+#  that θ comes from are not oriented usefully, and thus need to be mapped.
+# ------------------------------------------------------------------------------
+sub angle {
+    my ($x1, $y1, $x2, $y2) = @_;
+    my $y = $y1 - $y2;  # Backwards because y-axis is upside down
+    my $x = $x2 - $x1;
+    my $theta = atan2($y, $x);
+
+    # The theta of polar coordinates has 0 pointing to the right, negative is
+    # clockwise, and the range is from -π to π.
+    # For our purposes it would be useful if 0 pointed up, clockwise were
+    # positive, and the range of values was 0 to 2π. Basically, it'd be better
+    # if it were like a compass (though one that displays radians).
+    my $result = -$theta;       # Make clockwise positive
+    $result += atan2(1, 0);     # Add π/2, aka rotate the space so 0 is up
+                                # This also shifts the range to -π/2 to 3π/2
+    # Shift Quadrant II coordinates so they are no longer negative.
+    $result += 2 * atan2(0,-1) if $result < 0;
+
+    return $result;
+}
+
+# ------------------------------------------------------------------------------
+#  Display stuff conditionally
+# ------------------------------------------------------------------------------
+sub echo {
+    print @_ if $VERBOSE;
+}
+
+# ------------------------------------------------------------------------------
+#  Greatest common divisor using the Euclidean algorithm. Assumes 2 integer
+#  arguments.
+# ------------------------------------------------------------------------------
+sub gcd {
+    # Division-based version
+    my ($a, $b) = @_;
+    ($a, $b) = ($b, $a % $b) while $b != 0;
+    return abs($a);
+
+    # Subtraction-based version
+#    my ($a, $b) = map { abs $_ } @_;
+#    return $a if $b == 0;
+#    return $b if $a == 0;
+#    while ($a != $b) {
+#        $a -= $b if $a > $b;
+#        $b -= $a if $b > $a;
+#    }
+#    return $a;
+}
+
+# ------------------------------------------------------------------------------
+#  From a specific origin asteroid, return a list of visible target asteroids
+# ------------------------------------------------------------------------------
+sub get_visible {
+    my ($origin) = @_;
+
+    my ($origin_col, $origin_row) = split /,/, $origin;
+    # Check each other asteroid and see if it is visible
+    my @visible;
+    foreach my $target (keys %asteroids) {
+        next if $origin eq $target;
+        my ($target_col, $target_row) = split /,/, $target;
+        my $delta_col = $target_col - $origin_col;
+        my $delta_row = $target_row - $origin_row;
+        my $gcd = &gcd($delta_col, $delta_row);
+        $delta_col /= $gcd;
+        $delta_row /= $gcd;
+        # Search for collisions with non-target asteroids on the line from
+        # $origin to $target
+        my $collision = 0;
+        my ($col, $row) = ($origin_col + $delta_col, $origin_row + $delta_row);
+        while ($col != $target_col or $row != $target_row) {
+            if (exists $asteroids{"${col},${row}"}) {
+                $collision++;
+                last;
+            }
+            $col += $delta_col;
+            $row += $delta_row;
+        }
+        # No collisions, so this one is visible
+        push @visible, $target if not $collision;
+    }
+    return \@visible;
+}
+
+
+# Read asteroid positions
+while (<>) {
+    $asteroids{join(',', pos()-1, $.-1)} = () while m/#/g;
+}
+
+# Find the best source and the list of targets visible from that source
+my ($origin, @targets);
+{   my $best = 0;
+    # Test each asteroid as the monitoring station (scanning source)
+    foreach my $asteroid (keys %asteroids) {
+        my $visible = &get_visible($asteroid);
+        my $count = scalar @$visible;
+        if ($count > $best) {
+            $best = $count;
+            $origin = $asteroid;
+            @targets = @$visible;
+        }
+    }
+}
+
+echo "Origin: (${origin})\n";
+echo 'Visible asteroids: ', scalar(@targets), "\n";     # Part 1 solution
+
+my $i = 0;
+my ($origin_col, $origin_row) = split /,/, $origin;
+OUTER:
+    while (@targets) {
+        @targets = (map { $$_[1] }      # Schwartzian Transform, sort by angle
+                    sort { $a->[0] <=> $b->[0] }
+                    map { [&angle($origin_col, $origin_row, split /,/), $_] }
+                    @targets);
+        while (my $target = shift @targets) {
+            delete $asteroids{$target}; # Shoot the asteroid
+            $i++;
+            echo "${i}\t${target}\n";
+            if ($i == 200) {
+                my ($x, $y) = split /,/, $target;
+                print $x * 100 + $y, "\n";              # Part 2 solution
+                last OUTER;
+            }
+        }
+        # Reaching this point means the laser completed a revolution,
+        # vaporizing all visible asteroids. So... look around and see what
+        # remaining asteroids are newly visible.
+        @targets = @{ &get_visible($origin) };
+    }
