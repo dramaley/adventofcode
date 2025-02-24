@@ -1,0 +1,148 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#  Run the final "Intcode computer". This version expects a hash reference
+#  to contain the computer state. The computer state will be modified as the
+#  computer runs.
+# ------------------------------------------------------------------------------
+sub run {
+    my ($href) = @_;
+    my $memory   = $$href{'memory'};    # Array references, so just copy them.
+    my $input    = $$href{'input'};
+    my $inst_ptr = \$$href{'address'};  # These are scalars, so make references
+    my $rel_base = \$$href{'base'};
+
+    # Make sure these were initialized
+    $$inst_ptr //= 0;
+    $$rel_base //= 0;
+
+    my @modes;      # Parameter modes, set as each opcode is processed
+    my @output;     # Collect program output
+
+    # Function to handle parameter modes
+    my $pmode = sub {
+        my ($moderef, $param) = @_;
+        my $mode = $modes[$moderef] // 0;   # Look up the mode
+        if ($mode == 0) {                   # "Position mode"
+            return $$memory[$param] // 0;
+        } elsif ($mode == 1) {              # "Immediate mode"
+            return $param;
+        } elsif ($mode == 2) {              # "Relative mode"
+            return $$memory[$param + $$rel_base] // 0;
+        } else {
+            die "Bad mode: \"${mode}\"";
+        }
+    };
+    # Handle relative mode offset when saving a value
+    my $offset = sub {
+        my ($moderef) = @_;
+        return $modes[$moderef] // 0 == 2 ? $$rel_base : 0;
+    };
+
+    # Mapping of opcodes to implementation.
+    my @opcodes = (
+        # There is no opcode 0
+        sub { die 'Invalid opcode 0'; },
+        # Opcode 1, addition
+        sub { $$memory[$_[2]+&$offset(2)] = &$pmode(0,$_[0]) + &$pmode(1,$_[1]);
+              $$inst_ptr += 4; },
+        # Opcode 2, multiplication
+        sub { $$memory[$_[2]+&$offset(2)] = &$pmode(0,$_[0]) * &$pmode(1,$_[1]);
+              $$inst_ptr += 4; },
+        # Opcode 3, input
+        sub { $$memory[$_[0]+&$offset(0)] = shift @$input; $$inst_ptr += 2; },
+        # Opcode 4, output
+        sub { push @output, &$pmode(0,$_[0]); $$inst_ptr += 2; },
+        # Opcode 5, jump if true
+        sub { if (&$pmode(0,$_[0]) != 0) { $$inst_ptr = &$pmode(1,$_[1]); }
+              else { $$inst_ptr += 3; } },
+        # Opcode 6, jump if false
+        sub { if (&$pmode(0,$_[0]) == 0) { $$inst_ptr = &$pmode(1,$_[1]); }
+              else { $$inst_ptr += 3; } },
+        # Opcode 7, less than
+        sub { $$memory[$_[2]+&$offset(2)] = int(&$pmode(0,$_[0]) < &$pmode(1,$_[1]));
+              $$inst_ptr += 4; },
+        # Opcode 8, equals
+        sub { $$memory[$_[2]+&$offset(2)] = int(&$pmode(0,$_[0]) == &$pmode(1,$_[1]));
+              $$inst_ptr += 4; },
+        # Opcode 9, adjust the relative base offset
+        sub { $$rel_base += &$pmode(0,$_[0]); $$inst_ptr += 2; },
+        );
+
+    while ($$memory[$$inst_ptr] != 99) {
+        my $opcode = $$memory[$$inst_ptr] // 0;
+
+        # Parse the parameter modes
+        @modes = split //, reverse int($opcode / 100);
+        $opcode %= 100;
+
+        # Get parameters
+        my (@params) = map { $_ // 0 } @$memory[$$inst_ptr+1..$$inst_ptr+3];
+
+        # Execute this opcode
+        &{$opcodes[$opcode]}(@params);
+
+        # 2 outputs implies this panel has been processed
+        last if @output == 2;
+    }
+    return @output;
+}
+
+
+# ----------------
+#  Initialization
+# ----------------
+
+# The grid will hold (x,y) coordinates of panels that have been visited, and the
+# color (0 for black, 1 for white) of the visited panels. Unvisited panels are
+# color 0.
+my %grid;
+# Associate directions of movement with how to make that movement happen. Note
+# that these are ordered such that to turn 90° right, add 1 to the array index.
+# Similarly, to turn left, subtract 1.
+my @dir2movement = ([0,  1],    # ^  Move up, add 1 to the y-coordinate
+                    [1,  0],    # >  Move right by adding 1 to x
+                    [0, -1],    # v  Move down by subtracting 1 from y
+                    [-1, 0]);   # <  Move left by subtracting 1 from x
+# Initial position and direction
+my @pos = (0, 0);   # Origin
+my $dir = 0;        # Up, refer to @dir2movement
+
+# Get input
+my (@memory) = map { int } split /,/, <>;
+my %program = ('memory' => \@memory, 'input'  => [ 0 ]);
+
+# ------
+#  Main
+# ------
+
+while (1) {
+    my (@output) = &run(\%program);
+
+    # All done
+    last if not @output;
+
+    # Paint the current panel
+    my $color = shift @output;
+    $grid{join(',', @pos)} = $color;
+
+    # Turn
+    my $rotation = shift @output;
+    $rotation = -1 if $rotation == 0;   # Left turn
+    $dir += $rotation;
+    $dir %= scalar @dir2movement;
+
+    # Move forward one panel
+    foreach my $i (0..$#pos) {
+        $pos[$i] += $dir2movement[$dir][$i];
+    }
+
+    # Read panel color as program input
+    push @{$program{'input'}}, $grid{join(',', @pos)} // 0;
+}
+
+print scalar keys %grid, "\n";
