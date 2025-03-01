@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Math::Utils qw/lcm/;
+
+# ------------------------------------------------------------------------------
+#  Given a set of 1-dimensional position values, figure out how many steps to
+#  get back to that position. Note that it is not apparent from the problem
+#  description, but all inputs cycle back to their initial position, so it is
+#  unnecessary to worry about an offset. That makes this a lot simpler than it
+#  otherwise would be.
+# ------------------------------------------------------------------------------
+sub steps {
+    my (@position) = @_;
+    my @velocity = (0) x scalar @position;
+    # Initial situation to compare against
+    my $initial = join(',', @position, @velocity);
+    my $steps = 0;
+    do {
+        # Update velocities by applying gravity
+        foreach my $i (0..$#position) {
+            foreach my $j (grep { $_ != $i } 0..$#position) {
+                $velocity[$i] += $position[$j] <=> $position[$i];
+            }
+        }
+        # Update positions by applying velocity
+        foreach my $i (0..$#position) {
+            $position[$i] += $velocity[$i];
+        }
+        $steps++;
+    } until $initial eq join(',', @position, @velocity);
+    return $steps;
+}
+
+
+# Read input
+our @data = map { [ map { int } m/([-\d]+)/g ] } <>;
+# Transpose to collect all x values in the first row, y in second, and so on
+{   my @tr;
+    foreach my $row (0..$#data) {
+        foreach my $col (0..$#{$data[$row]}) {
+            $tr[$col][$row] = $data[$row][$col];
+        }
+    }
+    @data = @tr;
+}
+# Figure out how many steps it takes for each axis (x, y, z) to complete a cycle
+my @steps = map { &steps(@$_) } @data;
+# With that, the final answer is easy
+print lcm(@steps), "\n";

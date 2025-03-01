@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Read input
+our @data = map { { 'pos' => [map { int } m/([-\d]+)/g] } } <>;
+
+foreach my $step (1..1000) {
+    # Update velocities by applying gravity
+    foreach my $i (0..$#data) {
+        foreach my $j (grep { $_ != $i } 0..$#data) {
+            # "d" for dimension: x, y, or z
+            foreach my $d (0..$#{$data[$i]{'pos'}}) {
+                $data[$i]{'vel'}[$d] += ($data[$j]{'pos'}[$d] <=> $data[$i]{'pos'}[$d]);
+            }
+        }
+    }
+
+    # Update positions by applying velocity
+    foreach my $i (0..$#data) {
+        foreach my $d (0..$#{$data[$i]{'pos'}}) {
+            $data[$i]{'pos'}[$d] += $data[$i]{'vel'}[$d];
+        }
+    }
+}
+
+# Calculate total energy
+my $total = 0;
+foreach my $i (0..$#data) {
+    my ($pe, $ke) = (0) x 2;
+    $pe += $_ foreach map { abs } @{$data[$i]{'pos'}};
+    $ke += $_ foreach map { abs } @{$data[$i]{'vel'}};
+    $total += $pe * $ke;
+}
+print "${total}\n";
