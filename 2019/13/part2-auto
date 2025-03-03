@@ -91,9 +91,6 @@ sub run {
 
         # Execute this opcode
         &{$opcodes[$opcode]}(@params);
-
-        # 3 outputs implies a tile has been displayed
-#        last if @output == 3;
     }
     return @output;
 }
