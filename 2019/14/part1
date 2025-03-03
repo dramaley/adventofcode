@@ -1,0 +1,74 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use POSIX qw/ceil/;
+use Storable qw/dclone/;
+
+# Here's what we need
+our %need = ('FUEL' => 1);
+
+
+# Trivial functions with obvious names
+sub max { return (sort { $a <=> $b } @_)[-1]; }
+
+# Associate recipe products with list of ingredients
+our %recipes = (map { $$_[1] => [ split /, /, $$_[0] ] }
+                map { chomp; [ split / => / ] } <>);
+
+# Simplified recipes with just ingredients, no quantities
+our %simple = (map { (shift @$_) => [ @$_ ] }           # Back to hash
+               map { [ map { s/^\d+ //; $_ } @$_ ] }    # Strip numbers
+               map { [ $_, @{$recipes{$_}} ] }          # Product + ingredients
+               keys %recipes);
+
+# Figure out how many steps it takes from each product to get to ORE
+our %steps = %{ dclone(\%simple) };
+$steps{'ORE'} = 0;
+{   my $flag;
+    do {
+        $flag = 0;
+        foreach my $key (keys %steps) {
+            # This one is done already, so skip it
+            next if ref $steps{$key} ne 'ARRAY';
+            # Loop over the list
+            for(my $i = 0; $i < @{$steps{$key}}; $i++) {
+                # Promote an ingredient to a step count, if possible
+                if (exists $steps{ $steps{$key}[$i] } and
+                    ref $steps{ $steps{$key}[$i] } ne 'ARRAY') {
+                    $steps{$key}[$i] = $steps{ $steps{$key}[$i] } + 1;
+                }
+            }
+            # If there are no more ingredient references...
+            if (not grep { not m/^\d+$/ } @{$steps{$key}}) {
+                # ...promote the list to a step count
+                $steps{$key} = &max(@{$steps{$key}});
+            } else {
+                # Still dirty
+                $flag++
+            }
+        }
+    } while $flag;
+}
+
+# Convert what we need into ingredients until all we have left is ORE
+while (join(',', keys %need) ne 'ORE') {
+    # Find the product that requires the most steps to make
+    my $product = (sort { $steps{$a} <=> $steps{$b} } keys %need)[-1];
+    my $quantity = $need{$product};
+    # Find which recipe has our product
+    my ($recipe_fullname) = grep { m/ ${product}$/ } keys %recipes;
+    # How many does the recipe produce
+    my $recipe_quantity = (split / /, $recipe_fullname)[0];
+    # How many batches of the recipe do we need to make
+    my $batches = ceil($quantity/$recipe_quantity);
+    # Convert the product into ingredients
+    delete $need{$product};
+    foreach my $ingr (@{$recipes{$recipe_fullname}}) {
+        my ($ingr_quantity, $ingr_name) = split / /, $ingr;
+        $ingr_quantity *= $batches;
+        $need{$ingr_name} += $ingr_quantity;
+    }
+}
+print $need{'ORE'}, "\n";
