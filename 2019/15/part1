@@ -1,0 +1,165 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+use Storable qw/dclone/; # Deep copy of data structures
+
+# ------------------------------------------------------------------------------
+#  Run the "Intcode computer". This version expects a hash reference to contain
+#  the computer state. The state will be modified as the computer runs.
+# ------------------------------------------------------------------------------
+sub run {
+    my ($href) = @_;
+    my $memory   = $$href{'memory'};    # Array references, so just copy them.
+    my $input    = $$href{'input'};
+    my $inst_ptr = \$$href{'address'};  # These are scalars, so make references
+    my $rel_base = \$$href{'base'};
+
+    # Make sure these were initialized
+    $$inst_ptr //= 0;
+    $$rel_base //= 0;
+
+    my @modes;      # Parameter modes, set as each opcode is processed
+    my @output;     # Collect program output
+
+    # Function to handle parameter modes
+    my $pmode = sub {
+        my ($moderef, $param) = @_;
+        my $mode = $modes[$moderef] // 0;   # Look up the mode
+        if ($mode == 0) {                   # "Position mode"
+            return $$memory[$param] // 0;
+        } elsif ($mode == 1) {              # "Immediate mode"
+            return $param;
+        } elsif ($mode == 2) {              # "Relative mode"
+            return $$memory[$param + $$rel_base] // 0;
+        } else {
+            die "Bad mode: \"${mode}\"";
+        }
+    };
+    # Handle relative mode offset when saving a value
+    my $offset = sub {
+        my ($moderef) = @_;
+        return $modes[$moderef] // 0 == 2 ? $$rel_base : 0;
+    };
+
+    # Mapping of opcodes to implementation.
+    my @opcodes = (
+        # There is no opcode 0
+        sub { die 'Invalid opcode 0'; },
+        # Opcode 1, addition
+        sub { $$memory[$_[2]+&$offset(2)] = &$pmode(0,$_[0]) + &$pmode(1,$_[1]);
+              $$inst_ptr += 4; },
+        # Opcode 2, multiplication
+        sub { $$memory[$_[2]+&$offset(2)] = &$pmode(0,$_[0]) * &$pmode(1,$_[1]);
+              $$inst_ptr += 4; },
+        # Opcode 3, input
+        sub { $$memory[$_[0]+&$offset(0)] = shift @$input; $$inst_ptr += 2; },
+        # Opcode 4, output
+        sub { push @output, &$pmode(0,$_[0]); $$inst_ptr += 2; },
+        # Opcode 5, jump if true
+        sub { if (&$pmode(0,$_[0]) != 0) { $$inst_ptr = &$pmode(1,$_[1]); }
+              else { $$inst_ptr += 3; } },
+        # Opcode 6, jump if false
+        sub { if (&$pmode(0,$_[0]) == 0) { $$inst_ptr = &$pmode(1,$_[1]); }
+              else { $$inst_ptr += 3; } },
+        # Opcode 7, less than
+        sub { $$memory[$_[2]+&$offset(2)] = int(&$pmode(0,$_[0]) < &$pmode(1,$_[1]));
+              $$inst_ptr += 4; },
+        # Opcode 8, equals
+        sub { $$memory[$_[2]+&$offset(2)] = int(&$pmode(0,$_[0]) == &$pmode(1,$_[1]));
+              $$inst_ptr += 4; },
+        # Opcode 9, adjust the relative base offset
+        sub { $$rel_base += &$pmode(0,$_[0]); $$inst_ptr += 2; },
+        );
+
+    while ($$memory[$$inst_ptr] != 99) {
+        my $opcode = $$memory[$$inst_ptr] // 0;
+
+        # Parse the parameter modes
+        @modes = split //, reverse int($opcode / 100);
+        $opcode %= 100;
+
+        # Get parameters
+        my (@params) = map { $_ // 0 } @$memory[$$inst_ptr+1..$$inst_ptr+3];
+
+        # Bail out if input required but not available
+        last if $opcode == 3 and not @$input;
+
+        # Execute this opcode
+        &{$opcodes[$opcode]}(@params);
+
+        # Return output right away
+        last if @output;
+    }
+    return @output;
+}
+
+# ----------------
+#  Initialization
+# ----------------
+
+our %grid;                              # Build the map here
+
+our @dirs = ([-1,  0],  # North         # Given a direction, how to adjust @pos
+             [ 0,  1],  # East
+             [ 1,  0],  # South
+             [ 0, -1]); # West
+our @dir2robot = (1, 4, 2, 3);          # Map compass directions to robot-speak
+
+# Positions
+my ($start_row, $start_col) = (0, 0);
+
+# Get input
+my (@memory) = map { int } split /,/, <>;
+my %program = ('memory' => \@memory, 'input'  => []);
+
+# Start position within the grid
+$grid{join(',', $start_row, $start_col)} = 'S';
+
+# ------
+#  Main
+# ------
+
+{   my $pq = Array::Heap::PriorityQueue::Numeric->new();
+    $pq->add([\%program, $start_row, $start_col, 0], 0);
+
+    # I'm not convinced a BFS is the _best_ solution to this problem. But it
+    # is _a_ solution. And on my slow machine it runs in ~400 ms, consuming
+    # about 2 MB of RAM despite cloning the Intcode program many times.
+
+  BFS:
+    # Discover the maze via a breadth-first search
+    while (my $entry = $pq->get()) {
+        my ($pgm_ref, $row, $col, $cost) = @$entry;
+        foreach my $i (0..$#dirs) {             # Try each direction
+            my $row_new = $row + $dirs[$i][0];
+            my $col_new = $col + $dirs[$i][1];
+            my $grid_key = "${row_new},${col_new}";
+            next if exists $grid{$grid_key};    # Been that way before
+
+            # Try moving the robot
+            my $pgm_clone = dclone($pgm_ref);
+            push @{$$pgm_clone{'input'}}, $dir2robot[$i];
+            my ($status) = &run($pgm_clone);
+
+            if ($status == 0) {                 # Hit a wall
+                $grid{$grid_key} = '#';
+            } else {                            # Movement was successful
+                my $cost_new = $cost + 1;
+                if ($status == 1) {             # Normal open space
+                    $grid{$grid_key} = ' ';
+                } elsif ($status == 2) {        # Found the end!
+                    $grid{$grid_key} = 'E';
+                    print "${cost_new}\n";
+                    last BFS;
+                } else {
+                    die "Unexpected status: ${status}";
+                }
+                # Add the new spot to the queue
+                $pq->add([$pgm_clone, $row_new, $col_new, $cost_new], $cost_new);
+            }
+        }
+    }
+}
