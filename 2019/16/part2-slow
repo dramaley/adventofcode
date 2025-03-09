@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#   Flawed Frequency Transmission algorithm
+#   Calling it "ffs" because... for F's sake
+# ------------------------------------------------------------------------------
+sub ffs {
+    my ($num) = @_;
+    my @input = split //, $num;
+    my @output;
+
+    my @base = (0, 1, 0, -1);
+    foreach my $i (0..$#input) {
+        # Determine the multiplier pattern
+        my @multiplier = map { ($_) x ($i + 1) } @base;
+        push @multiplier, shift @multiplier;
+
+        # Calculate the output digit
+        $output[$i] += $input[$_] * $multiplier[$_ % @multiplier] foreach 0..$#input;
+        $output[$i] = abs $output[$i];
+        $output[$i] %= 10;
+    }
+    return join('', @output);
+}
+
+# This naïve solution should work... eventually. It is impractically slow.
+our ($input) = map { chomp; $_ } <>;
+our $offset = substr($input, 0, 7);
+$input x= 10000;
+$input = &ffs($input) foreach 1..100;
+print substr($input, $offset, 8), "\n";

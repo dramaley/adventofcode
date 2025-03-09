@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my ($input) = map { chomp; $_ } <>;
+
+my $start = substr($input, 0, 7);
+my $end = length($input) * 10000;
+
+# Find the digits from $start to $end
+my @current = (map { split // }
+               substr($input, -($end-$start)%length($input)),
+               $input x int(($end-$start)/length($input)));
+
+# Work the problem backwards, only calculating what we need.
+foreach (1..100) {
+    my @sums = (0);
+    my $total = 0;
+    for(my $i = 0; $i < @current; $i++) {
+        $total += $current[$i];
+        push @sums, $total;
+    }
+    for(my $i = 0; $i < @current; $i++) {
+        my $val = $sums[-1] - $sums[$i];
+        $current[$i] = $val % 10;
+    }
+}
+print @current[0..7], "\n";
