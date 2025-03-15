@@ -1,0 +1,67 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+
+# ------------------------------------------------------------------------------
+#  Given a reference to a bitmask representing the 26 letters, and a letter,
+#  set the letter's bit in the bitmask. "A" is bit 0, "B" is bit 1, and so on.
+# ------------------------------------------------------------------------------
+sub alphabits {
+    my ($bits, $alpha) = @_;
+    $$bits |= 2 ** (ord(uc $alpha) - ord('A'));
+}
+
+
+# Read input
+our (@grid, $start_row, $start_col);
+our $keys_to_find = 0;
+while (<>) {    # Don't use map{} here as it'll make $. useless later
+    chomp;
+    push @grid, [ split // ];
+    if (m/@/g) {        # Found the start position
+        $start_row = $. - 1;
+        $start_col = pos() - 1;
+    }
+    # Keep track of what keys to search for
+    &alphabits(\$keys_to_find, $_) foreach m/[[:alpha:]]/g;
+}
+
+# Solve the maze
+my $cost;
+{   my $pq = Array::Heap::PriorityQueue::Numeric->new();
+    # Key is (row, column, keys found), value is cost to get there
+    my %seen = ("${start_row},${start_col},0" => 0);
+    # (row, column, keys found, cost)
+    $pq->add([$start_row, $start_col, 0, 0], 0);
+    my ($row, $col, $keys_found);
+    while (my $entry = $pq->get()) {
+        ($row, $col, $keys_found, $cost) = @$entry;
+        &alphabits(\$keys_found, $grid[$row][$col]) # Found a key, pick it up
+            if $grid[$row][$col] =~ m/[a-z]/;
+        last if $keys_found == $keys_to_find;       # Found all the keys!
+        foreach ([0,-1], [0,1], [-1,0], [1,0]) {    # Try moving every which way
+            my ($row_delta, $col_delta) = @$_;
+            my $new_row = $row + $row_delta;
+            my $new_col = $col + $col_delta;
+            # No sense going where we've already been
+            next if exists $seen{"${new_row},${new_col},${keys_found}"};
+            # Can't proceed if there's a wall
+            next if $grid[$new_row][$new_col] eq '#';
+            # Check if there's a door ahead
+            if ($grid[$new_row][$new_col] =~ m/[A-Z]/) {
+                my $door = 0;
+                &alphabits(\$door, $grid[$new_row][$new_col]);
+                # Can't proceed if we don't have the key
+                next if not ($keys_found & $door);
+            }
+            # Safe to proceed
+            my $new_cost = $cost + 1;
+            $seen{"${new_row},${new_col},${keys_found}"} = $new_cost;
+            $pq->add([$new_row, $new_col, $keys_found, $new_cost], $new_cost);
+        }
+    }
+}
+print "${cost}\n";

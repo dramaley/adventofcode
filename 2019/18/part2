@@ -1,0 +1,104 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+
+# ------------------------------------------------------------------------------
+#  Given a reference to a bitmask representing the 26 letters, and a letter,
+#  set the letter's bit in the bitmask. "A" is bit 0, "B" is bit 1, and so on.
+# ------------------------------------------------------------------------------
+sub alphabits {
+    my ($bits, $alpha) = @_;
+    $$bits |= 2 ** (ord(uc $alpha) - ord('A'));
+}
+
+# ----------------
+#  Initialization
+# ----------------
+
+our (@grid, @start);
+our $keys_to_find = 0;
+{   # Read input
+    my ($start_row, $start_col);
+    while (<>) {    # Don't use map{} here as it'll make $. useless later
+        chomp;
+        push @grid, [ split // ];
+        if (m/@/g) {        # Found the start position
+            $start_row = $. - 1;
+            $start_col = pos() - 1;
+        }
+        # Keep track of what keys to search for
+        &alphabits(\$keys_to_find, $_) foreach m/[[:alpha:]]/g;
+    }
+
+    # Mangle the map for Part 2
+    @{$grid[$start_row-1]}[$start_col-1..$start_col+1] = ('@', '#', '@');
+    @{$grid[$start_row  ]}[$start_col-1..$start_col+1] = ('#', '#', '#');
+    @{$grid[$start_row+1]}[$start_col-1..$start_col+1] = ('@', '#', '@');
+
+    # There are 4 robots; in comments they shall be referred to as A, B, C, D.
+    # These are their respective start positions.
+    @start = ([$start_row-1, $start_col-1],     # Robot A
+              [$start_row-1, $start_col+1],     # Robot B
+              [$start_row+1, $start_col-1],     # Robot C
+              [$start_row+1, $start_col+1]);    # Robot D
+}
+
+# ----------
+#  Solve it
+# ----------
+
+# Solve the maze
+my $cost;
+{   my $pq = Array::Heap::PriorityQueue::Numeric->new();
+    # Keys are (keys found, row, col) for each robot, value is cost
+    my %seen;
+    @seen{map { join(',', 0, @$_) } @start} = ((0) x @start);
+    # (cost, keys found, A row, A col, B row...)
+    $cost = 0;
+    $pq->add([$cost, 0, map { @$_ } @start], $cost);
+    my ($keys_found, @robots);
+    while (my $entry = $pq->get()) {
+        ($cost, $keys_found, @robots) = @$entry;
+        # Process each robot in turn. The numbers here are indices of @robots.
+        foreach my $indices ([0, 1], [2, 3], [4, 5], [6, 7]) {
+            my ($row_idx, $col_idx) = @$indices;
+            my $tile = $grid[$robots[$row_idx]][$robots[$col_idx]];
+            &alphabits(\$keys_found, $tile)     # Found a key, pick it up
+                if $tile =~ m/[a-z]/;
+        }
+
+        last if $keys_found == $keys_to_find;       # Found all the keys!
+
+        # These loops must remain separate since keys must be picked up first
+        foreach my $indices ([0, 1], [2, 3], [4, 5], [6, 7]) {
+            my ($row_idx, $col_idx) = @$indices;
+            foreach ([0,-1], [0,1], [-1,0], [1,0]) {# Try moving every which way
+                my ($row_delta, $col_delta) = @$_;
+                my $new_row = $robots[$row_idx] + $row_delta;
+                my $new_col = $robots[$col_idx] + $col_delta;
+                my $new_seen_key = join(',', $keys_found, $new_row, $new_col);
+                # No sense going where we've already been
+                next if exists $seen{$new_seen_key};
+                # Can't proceed if there's a wall
+                next if $grid[$new_row][$new_col] eq '#';
+                # Check if there's a door ahead
+                if ($grid[$new_row][$new_col] =~ m/[A-Z]/) {
+                    my $door = 0;
+                    &alphabits(\$door, $grid[$new_row][$new_col]);
+                    # Can't proceed if we don't have the key
+                    next if not ($keys_found & $door);
+                }
+                # Safe to proceed
+                my $new_cost = $cost + 1;
+                $seen{$new_seen_key} = $new_cost;
+                $pq->add([$new_cost, $keys_found, @robots[0..$row_idx-1],
+                          $new_row, $new_col, @robots[$col_idx+1..$#robots]],
+                         $new_cost);
+            }
+        }
+    }
+}
+print "${cost}\n";
