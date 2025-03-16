@@ -1,0 +1,190 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# ------------------------------------------------------------------------------
+#  Run the "Intcode computer". This version expects a hash reference to contain
+#  the computer state. The state will be modified as the computer runs.
+# ------------------------------------------------------------------------------
+sub run {
+    my ($href) = @_;
+    my $memory   = $$href{'memory'};    # Array references, so just copy them.
+    my $input    = $$href{'input'};
+    my $inst_ptr = \$$href{'address'};  # These are scalars, so make references
+    my $rel_base = \$$href{'base'};
+
+    # Make sure these were initialized
+    $$inst_ptr //= 0;
+    $$rel_base //= 0;
+
+    my @modes;      # Parameter modes, set as each opcode is processed
+    my @output;     # Collect program output
+
+    # Function to handle parameter modes
+    my $pmode = sub {
+        my ($moderef, $param) = @_;
+        my $mode = $modes[$moderef] // 0;   # Look up the mode
+        if ($mode == 0) {                   # "Position mode"
+            return $$memory[$param] // 0;
+        } elsif ($mode == 1) {              # "Immediate mode"
+            return $param;
+        } elsif ($mode == 2) {              # "Relative mode"
+            return $$memory[$param + $$rel_base] // 0;
+        } else {
+            die "Bad mode: \"${mode}\"";
+        }
+    };
+    # Handle relative mode offset when saving a value
+    my $offset = sub {
+        my ($moderef) = @_;
+        return $modes[$moderef] // 0 == 2 ? $$rel_base : 0;
+    };
+
+    # Mapping of opcodes to implementation.
+    my @opcodes = (
+        # There is no opcode 0
+        sub { die 'Invalid opcode 0'; },
+        # Opcode 1, addition
+        sub { $$memory[$_[2]+&$offset(2)] = &$pmode(0,$_[0]) + &$pmode(1,$_[1]);
+              $$inst_ptr += 4; },
+        # Opcode 2, multiplication
+        sub { $$memory[$_[2]+&$offset(2)] = &$pmode(0,$_[0]) * &$pmode(1,$_[1]);
+              $$inst_ptr += 4; },
+        # Opcode 3, input
+        sub { $$memory[$_[0]+&$offset(0)] = shift @$input; $$inst_ptr += 2; },
+        # Opcode 4, output
+        sub { push @output, &$pmode(0,$_[0]); $$inst_ptr += 2; },
+        # Opcode 5, jump if true
+        sub { if (&$pmode(0,$_[0]) != 0) { $$inst_ptr = &$pmode(1,$_[1]); }
+              else { $$inst_ptr += 3; } },
+        # Opcode 6, jump if false
+        sub { if (&$pmode(0,$_[0]) == 0) { $$inst_ptr = &$pmode(1,$_[1]); }
+              else { $$inst_ptr += 3; } },
+        # Opcode 7, less than
+        sub { $$memory[$_[2]+&$offset(2)] = int(&$pmode(0,$_[0]) < &$pmode(1,$_[1]));
+              $$inst_ptr += 4; },
+        # Opcode 8, equals
+        sub { $$memory[$_[2]+&$offset(2)] = int(&$pmode(0,$_[0]) == &$pmode(1,$_[1]));
+              $$inst_ptr += 4; },
+        # Opcode 9, adjust the relative base offset
+        sub { $$rel_base += &$pmode(0,$_[0]); $$inst_ptr += 2; },
+        );
+
+    while ($$memory[$$inst_ptr] != 99) {
+        my $opcode = $$memory[$$inst_ptr] // 0;
+
+        # Parse the parameter modes
+        @modes = split //, reverse int($opcode / 100);
+        $opcode %= 100;
+
+        # Get parameters
+        my (@params) = map { $_ // 0 } @$memory[$$inst_ptr+1..$$inst_ptr+3];
+
+        # Bail out if input required but not available
+        last if $opcode == 3 and not @$input;
+
+        # Execute this opcode
+        &{$opcodes[$opcode]}(@params);
+
+        # Return output right away
+        last if @output;
+    }
+    return @output;
+}
+
+
+# Get input
+our (@memory) = map { int } split /,/, <>;
+
+# ------------------------------------------------------------------------------
+#  Given (x, y) coordinates, run the program and return whether that coordinate
+#  is in the tractor beam.
+# ------------------------------------------------------------------------------
+sub checkbeam {
+    my ($x, $y) = @_;
+    my %program = ('memory' => [@memory], 'input'  => [$x, $y]);
+    my ($answer) = &run(\%program);
+    return $answer;
+}
+
+# ------------------------------------------------------------------------------
+#  Given an (x, y) coordinate that is "near" the left edge of the beam, find
+#  and return the exact x of the left edge. The initial x value must be either
+#  within the beam or to the left of it.
+# ------------------------------------------------------------------------------
+sub left {
+    my ($x, $y) = @_;
+    $x++ while not &checkbeam($x, $y);  # $x outside the beam, so scan right
+    $x-- while &checkbeam($x - 1, $y);  # $x within the beam, so scan left
+    return $x;
+}
+
+# ------------------------------------------------------------------------------
+#  Given an (x, y) coordinate that is "near" the right edge of the beam, find
+#  and return the exact x of the right edge. The initial x value must be either
+#  within the beam or to the right of it.
+# ------------------------------------------------------------------------------
+sub right {
+    my ($x, $y) = @_;
+    $x-- while not &checkbeam($x, $y);  # $x outside the beam, so scan left
+    $x++ while &checkbeam($x + 1, $y);  # $x within the beam, so scan right
+    return $x;
+}
+
+# ------------------------------------------------------------------------------
+#  Given an (x, y) coordinate on the right edge of the beam, and an initial
+#  guess of how large a square will fit within the beam, determine the actual
+#  value and return it.
+# ------------------------------------------------------------------------------
+sub square {
+    my ($x, $y, $guess) = @_;
+    $guess-- while not &checkbeam($x-$guess-1, $y+$guess+1);
+    $guess++ while &checkbeam($x-$guess-1, $y+$guess+1);
+    return $guess;
+}
+
+# ------
+#  Main
+# ------
+
+# Find the x-coordinate of the right edge of the beam at y=100
+# (100 was chosen somewhat arbitrarily)
+my ($x, $y) = (0, 100);
+$x = &left($x, $y);                     # Find left edge of the beam
+my $left_x = $x;
+$x = &right($x, $y);                    # And then find the right edge
+
+# Try to guess when the beam will be 100 units wide on the x-axis
+my $scale = int(100 / ($x - $left_x + 1));
+$y *= $scale;
+$x = &right($x * $scale, $y);
+
+# Find how large a square can fit in the beam at this location
+my $square = &square($x, $y, 0);
+
+# Try to guess where a square 100 units wide will fit
+$scale = 99 / $square;  # Careful! Needs to be 99 because of off-by-one stuff
+$y = int($y * $scale);
+$x = &right(int($x * $scale), $y);
+
+# Check how large a square can fit here
+$square = &square($x, $y, $square);
+
+# Adjust until we find just the right spot
+while ($square > 98) {  # Square is too big
+    $y -= 1;            # Back up a line
+    $x = &right($x, $y);
+    $square = &square($x, $y, $square);
+}
+while ($square < 99) {  # Square is too small
+    $y += 1;            # Move down a line
+    $x = &right($x, $y);
+    $square = &square($x, $y, $square);
+}
+
+# The coordinate represented by ($x, $y) is 99 x to the right of the one we
+# want for the answer, hence the subtraction.
+my $answer = ($x - 99) * 10000 + $y;
+print "${answer}\n";
