@@ -1,0 +1,88 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Array::Heap::PriorityQueue::Numeric;
+
+our @grid = map { chomp; [ split // ] } <>;
+our %portals;
+
+# Find the portals
+for my $row (0..$#grid) {
+    for my $col (grep { $grid[$row][$_] =~ m/^[[:upper:]]$/ }
+                 0..$#{$grid[$row]}) {
+        my $key = $grid[$row][$col];
+        # Process vertical portals
+        if ($row < $#grid and $grid[$row+1][$col] =~ m/^[[:upper:]]$/) {
+            $key .= $grid[$row+1][$col];
+            if ($row > 0 and $grid[$row-1][$col] eq '.') {
+                push @{ $portals{$key} }, [ $row-1, $col ];
+            } elsif ($grid[$row+2][$col] eq '.') {
+                push @{ $portals{$key} }, [ $row+2, $col ];
+            } else {
+                die 'incomplete vertical portal definition';
+            }
+        }
+        # Process horizontal portals
+        elsif ($col < $#{$grid[$row]} and $grid[$row][$col+1] =~ m/^[[:upper:]]$/) {
+            $key .= $grid[$row][$col+1];
+            if ($col > 0 and $grid[$row][$col-1] eq '.') {
+                push @{ $portals{$key} }, [ $row, $col-1 ];
+            } elsif ($grid[$row][$col+2] eq '.') {
+                push @{ $portals{$key} }, [ $row, $col+2 ];
+            } else {
+                die 'incomplete horizontal portal definition';
+            }
+        }
+    }
+}
+
+# Build a mapping of portal coordinates to each other
+my %portal_mapping = (map { (join(',', @{$$_[0]}) => $$_[1],
+                             join(',', @{$$_[1]}) => $$_[0]) }
+                      grep { @$_ == 2 } values %portals);
+
+# Get source and destination
+my @src = @{ $portals{'AA'}[0] };
+my @dst = @{ $portals{'ZZ'}[0] };
+
+# Solve the maze
+my $pq = Array::Heap::PriorityQueue::Numeric->new();
+$pq->add([@src, 0, 0], 0);                      # row, column, level, cost
+my %seen = (join(',', @src, 0) => 1);           # (row, column, level) => true
+while (my $entry = $pq->get()) {
+    my ($row, $col, $lvl, $cost) = @$entry;
+    if ($row == $dst[0] and $col == $dst[1] and $lvl == 0) {    # Solved it!
+        print "${cost}\n";
+        exit;
+    }
+    foreach my $delta ([-1, 0], [0, 1], [1, 0], [0, -1]) {  # Each direction
+        my $new_row = $row + $$delta[0];
+        my $new_col = $col + $$delta[1];
+        my $new_lvl = $lvl;
+        my $new_cost = $cost + 1;
+        # Check if the new coordinate is a portal
+        my $portal_key = "${new_row},${new_col}";
+        if (exists $portal_mapping{$portal_key}) {
+            if ($new_row == 2 or $new_row == $#grid - 2 or
+                $new_col == 2 or $new_col == $#{$grid[$new_row]} - 2) {
+                $new_lvl--;     # Outer wall
+            } else {
+                $new_lvl++;     # Inner wall
+            }
+            if ($new_lvl >= 0) {
+                ($new_row, $new_col) = @{ $portal_mapping{$portal_key} };
+                $new_cost++;    # Stepping through the portal comes with a cost
+            } else {
+                $new_lvl = 0;   # Don't go out of bounds
+            }
+        }
+        # Invalid movement
+        next if $grid[$new_row][$new_col] ne '.';
+        # Been there, done that
+        next if $seen{"${new_row},${new_col},${new_lvl}"}++;
+        # Process the move
+        $pq->add([$new_row, $new_col, $new_lvl, $new_cost], $new_cost);
+    }
+}
