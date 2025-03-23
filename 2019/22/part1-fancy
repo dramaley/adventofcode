@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This version uses modular arithmetic. It's faster, but more obscure.
+
+# Deck size
+our $deck = 10007;
+
+# What we seek
+our $card = 2019;
+
+# Get the modular arithmetic coefficients. Here be dragons.
+our ($a, $b) = (1, 0);
+while (<>) {
+    /^deal into new stack$/       && do { $a = -$a; $b = -$b - 1; next; };
+    /^cut (-?\d+)$/               && do {           $b = $b - $1; next; };
+    /^deal with increment (\d+)$/ && do { $a = ($a * $1) % $deck;
+                                          $b = ($b * $1) % $deck; next; };
+    die 'bad input';
+}
+
+my $answer = ($a * $card + $b) % $deck;
+print "${answer}\n";

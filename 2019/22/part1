@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This version is a straight-forward implementation of the problem description.
+
+our @cards = (0..10006);
+
+sub deal_new {
+    @cards = reverse @cards;
+}
+
+sub cut {
+    my ($n) = @_;
+    if ($n < 0) {
+        unshift @cards, splice @cards, $n;
+    } else {
+        push @cards, splice @cards, 0, $n;
+    }
+}
+
+sub deal_incr {
+    my ($n) = @_;
+    my @new;
+    my $ptr = 0;
+    for (my $i = 0; $i < @cards; $i++) {
+        @new[$ptr] = $cards[$i];
+        $ptr += $n;
+        $ptr %= @cards;
+    }
+    @cards = @new;
+}
+
+# Shuffle
+while (<>) {
+    /^deal into new stack$/       && do { &deal_new; next; };
+    /^cut (-?\d+)$/               && do { &cut($1); next; };
+    /^deal with increment (\d+)$/ && do { &deal_incr($1); next; };
+    die 'bad input';
+}
+
+# Find the answer
+for (my $i = 0; $i < @cards; $i++) {
+    next if $cards[$i] != 2019;
+    print "${i}\n";
+    last;
+}

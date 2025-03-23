@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use bignum;
+
+# Deck size and number of iterations
+our $deck = 119315717514047;
+our $iter = 101741582076661;
+
+# What we seek
+our $position = 2020;
+
+# ------------------------------------------------------------------------------
+#  Modular exponentiation for big numbers, based on the version that appeared
+#  in _Applied Cryptography_ by Bruce Schneier.
+# ------------------------------------------------------------------------------
+sub pow3 {
+    # base, exponent, modulus
+    my ($b, $e, $m) = @_;
+
+    return 0 if $m == 1;
+    my $res=1;
+    $b %= $m;
+    while ($e > 0) {
+        if ($e % 2 == 1) {
+            $res *= $b;
+            $res %= $m;
+        }
+        $e >>= 1;
+        $b *= $b;
+        $b %= $m;
+    }
+    return $res;
+}
+
+# Get the modular arithmetic coefficients. Here be dragons.
+our ($a, $b) = (1, 0);
+while (<>) {
+    /^deal into new stack$/       && do { $a = -$a; $b = -$b - 1; next; };
+    /^cut (-?\d+)$/               && do {           $b = $b - $1; next; };
+    /^deal with increment (\d+)$/ && do { $a = ($a * $1) % $deck;
+                                          $b = ($b * $1) % $deck; next; };
+    die 'bad input';
+}
+
+# Modular inverse stuff. Aka, more dragons.
+my $inv_a = &pow3($a, $deck - 2, $deck);
+my $inv_a_to_k = &pow3($inv_a, $iter, $deck);
+my $coef = (($inv_a_to_k - 1) * &pow3($inv_a-1, $deck-2, $deck) - 1) % $deck;
+my $answer = (($position - $b) * $inv_a_to_k - $b * $coef) % $deck;
+print "${answer}\n";
