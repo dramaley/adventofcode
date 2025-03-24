@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Calculate the biodiversity rating of a grid
+sub biodiversity_rating {
+    my ($grid) = @_;
+    my $string = join '', map { join '', @$_ } @$grid;
+    my $rating = 0;
+    while ($string =~ m/#/g) {
+        $rating += 2 ** (pos($string)-1);
+    }
+    return $rating;
+}
+
+# Read input
+my @grid = map { chomp; [ split // ]; } <>;
+
+my %seen;
+while (1) {
+    # Uncomment this to watch it work
+    #print map { "$_\n" } map { join('', @$_) } @grid; print "\n";
+
+    # Check for completion
+    my $rating = &biodiversity_rating(\@grid);
+    if ($seen{$rating}++) {
+        print "${rating}\n";
+        exit;
+    }
+
+    # Calculate the next iteration
+    my @new_grid;
+    foreach my $row (0..$#grid) {
+        foreach my $col (0..$#{$grid[$row]}) {
+            my $adjacent = 0;
+            # Count adjacent bugs
+            foreach my $i ([$row, $col-1], [$row, $col+1],
+                           [$row-1, $col], [$row+1, $col]) {
+                my ($r, $c) = @$i;
+                # Skip out of bounds
+                next if $r < 0 or $r > $#grid or $c < 0 or $c > $#{$grid[$row]};
+                $adjacent++ if $grid[$r][$c] eq '#';
+            }
+            # Figure out tile's new status
+            $new_grid[$row][$col] =
+                ($adjacent == 1 ? '#' :
+                 (($grid[$row][$col] eq '.' and $adjacent == 2) ? '#' : '.'));
+        }
+    }
+    @grid = @new_grid;
+}

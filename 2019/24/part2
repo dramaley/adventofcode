@@ -1,0 +1,148 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use Storable qw/dclone/; # Deep copy of data structures
+
+# Location of the recursive grid / magic wormhole thingy
+our ($magic_row, $magic_col) = (2, 2);
+
+# Read input
+our %grids;
+{   my @grid = map { chomp; [ split // ]; } <>;
+    $grid[$magic_row][$magic_col] = '?';
+    $grids{0} = \@grid;
+}
+
+# Used when extending the space
+our @empty_grid;
+push @empty_grid, [ ('.') x @{$grids{0}[$_]} ] foreach 0..$#{$grids{0}};
+$empty_grid[$magic_row][$magic_col] = '?';
+
+
+# ------------------------------------------------------------------------------
+#  Given a grid, row, and column, determine how many adjacent bugs there are
+# ------------------------------------------------------------------------------
+sub adjacency {
+    my ($grid, $row, $col) = @_;
+
+    my $adjacent = 0;
+    foreach my $i ([$row, $col-1], [$row, $col+1],
+                   [$row-1, $col], [$row+1, $col]) {
+        my ($r, $c) = @$i;
+        if ($r < 0) {
+            # Went off the top of the grid
+            $adjacent++ if &get_tile($grid-1, $magic_row-1, $magic_col) eq '#';
+        } elsif ($r > $#{$grids{$grid}}) {
+            # Went off the bottom of the grid
+            $adjacent++ if &get_tile($grid-1, $magic_row+1, $magic_col) eq '#';
+        } elsif ($c < 0) {
+            # Went off the left side of the grid
+            $adjacent++ if &get_tile($grid-1, $magic_row, $magic_col-1) eq '#';
+        } elsif ($c > $#{ $grids{$grid}[$row] }) {
+            # Went off the right side of the grid
+            $adjacent++ if &get_tile($grid-1, $magic_row, $magic_col+1) eq '#';
+        } elsif ($r == $magic_row and $c == $magic_col) {
+            # Uh-oh, we stepped in it. The recursive grid.
+            if ($row == $magic_row - 1) {
+                # Entering the recursive grid from the top
+                foreach (0..$#{ $grids{$grid}[0] }) {
+                    $adjacent++ if &get_tile($grid + 1, 0, $_) eq '#';
+                }
+            } elsif ($row == $magic_row + 1) {
+                # Entering the recursive grid from the bottom
+                foreach (0..$#{ $grids{$grid}[0] }) {
+                    my $last_row = $#{$grids{$grid}};
+                    $adjacent++ if &get_tile($grid + 1, $last_row, $_) eq '#';
+                }
+            } elsif ($col == $magic_col - 1) {
+                # Entering the recursive grid from the left
+                foreach (0..$#{ $grids{$grid} }) {
+                    $adjacent++ if &get_tile($grid + 1, $_, 0) eq '#';
+                }
+            } elsif ($col == $magic_col + 1) {
+                # Entering the recursive grid from the right
+                foreach (0..$#{ $grids{$grid} }) {
+                    my $last_col = $#{ $grids{$grid}[$magic_row] };
+                    $adjacent++ if &get_tile($grid + 1, $_, $last_col) eq '#';
+                }
+            } else {
+                die 'impossible situation';
+            }
+        } else {
+            # After all that, the default case seems boring
+            $adjacent++ if $grids{$grid}[$r][$c] eq '#';
+        }
+    }
+    return $adjacent;
+}
+
+# ------------------------------------------------------------------------------
+#  Return the value of a tile, even if it hasn't been instantiated yet
+# ------------------------------------------------------------------------------
+sub get_tile {
+    my ($grid, $row, $col) = @_;
+    return '.' if not exists $grids{$grid};
+    return $grids{$grid}[$row][$col];
+}
+
+# ------------------------------------------------------------------------------
+#  Print the grids
+# ------------------------------------------------------------------------------
+sub printer {
+    foreach my $i (sort { $a <=> $b } keys %grids) {
+        print "Depth ${i}\n";
+        print map { "$_\n" } map { join('', @$_) } @{ $grids{$i} };
+        print "\n";
+    }
+    print "\n";
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+for (1..200) {
+    # Uncomment to watch it work
+    #&printer;
+
+    # Extend the grids
+    {   # Get list of existing indices
+        my (@indices) = sort { $a <=> $b } keys %grids;
+        # Check the bottom grid, add a new one if not empty
+        my $bottom = $indices[0];
+        my $stringified = join '', map { join '', @$_ } @{ $grids{$bottom} };
+        $grids{$bottom-1} = dclone(\@empty_grid) if $stringified =~ m/#/;
+        # Check the top grid, add a new one if not empty
+        my $top = $indices[-1];
+        $stringified = join '', map { join '', @$_ } @{ $grids{$top} };
+        $grids{$top+1} = dclone(\@empty_grid) if $stringified =~ m/#/;
+    }
+
+    # Calculate the next iteration
+    my %new_grids;
+    foreach my $grid_index (sort { $a <=> $b } keys %grids) {
+        foreach my $row (0..$#{$grids{$grid_index}}) {
+            foreach my $col (0..$#{$grids{$grid_index}[$row]}) {
+                # Skip the recursive grid
+                next if $row == $magic_row and $col == $magic_col;
+                # Too messy to include inline
+                my $adjacent = &adjacency($grid_index, $row, $col);
+                # Figure out tile's new status
+                $new_grids{$grid_index}[$row][$col] =
+                    ($adjacent == 1 ? '#' :
+                     (($grids{$grid_index}[$row][$col] eq '.' and $adjacent == 2) ? '#' : '.'));
+            }
+        }
+        $new_grids{$grid_index}[$magic_row][$magic_col] = '?';
+    }
+    %grids = %new_grids;
+}
+
+# Count the bugs
+my $bugs = join('', (grep { /#/ }       # This is what we want
+                     map { @$_ }        # Flatten rows into columns
+                     map { @$_ }        # Flatten grids into rows
+                     values %grids));   # Loop over all grids
+print length($bugs), "\n";

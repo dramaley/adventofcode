@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This version stores the grid as it's biodiversity rating!
+#
+# I was curious how well that would work. It runs marginally (about 40%)
+# faster than the original solution that uses a 2-dimentional array. This
+# technique would probably see more significant gains at larger scale.
+
+our ($rows, $cols);
+
+# Print a bit string
+sub printer {
+    my ($data) = @_;
+    foreach (1..$rows) {
+        foreach (1..$cols) {
+            print($data & 1 ? '#' : '.');
+            $data >>= 1;
+        }
+        print "\n";
+    }
+    print "\n";
+}
+
+# Read input into a bit string
+my $grid = 0;
+{   my @strings = map { chomp; $_; } <>;
+    $rows = @strings;
+    $cols = length $strings[0];
+    my $string = join '', @strings;
+    while ($string =~ m/#/g) {
+        $grid += 2 ** (pos($string)-1);
+    }
+}
+
+# Calculate adjacency masks
+my @masks;
+for (my $r = 0; $r < $rows; $r++) {
+    for (my $c =0; $c < $cols; $c++) {
+        my $i = $r * $rows + $c;
+        foreach ([$r-1, $c], [$r, $c-1], [$r, $c+1], [$r+1, $c]) {
+            my ($chk_r, $chk_c) = @$_;
+            # Skip out of bounds
+            next if $chk_r<0 or $chk_r>=$rows or $chk_c<0 or $chk_c>=$cols;
+            # Without the "int" these get stored as strings. Weird.
+            push @{ $masks[$i] }, int(2 ** ($chk_r * $rows + $chk_c));
+        }
+    }
+}
+
+my %seen;
+while (1) {
+    # Uncomment this to watch it work
+    #&printer($grid);
+
+    # Check for completion
+    if ($seen{$grid}++) {
+        print "${grid}\n";
+        exit;
+    }
+
+    # Calculate the next iteration
+    my $new_grid = 0;
+    foreach (my $i = 0; $i < $rows * $cols; $i++) {
+        my $adjacent = 0;
+        # Count adjacent bugs
+        foreach my $mask (@{ $masks[$i] }) {
+            $adjacent++ if $grid & $mask;
+        }
+        # Figure out tile's new status
+        if ($adjacent == 1 or ($adjacent == 2 and not ($grid & (2**$i)))) {
+            $new_grid += 2 ** $i;
+        }
+    }
+    $grid = $new_grid;
+}
