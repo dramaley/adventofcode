@@ -1,0 +1,46 @@
+Here's how the rooms connect:
+
+Direction            Room name                  Items
+-------------------------------------------------------------------------
+start                [Hull Breach]              n/a
+  east               [Storage]                  n/a
+  west               [Navigation]               whirled peas
+  south              [Gift Wrapping Center]     photons (BAD)
+    west             [Hallway]                  bowl of rice
+      north          [Crew Quarters]            n/a
+    east             [Holodeck]                 mutex
+      east           [Hot Chocolate Fountain]   astronaut ice cream
+        east         [Stables]                  ornament
+          east       [Corridor]                 infinite loop (BAD)
+        south        [Engineering]              tambourine
+      south          [Passages]                 escape pod (BAD)
+        east         [Warp Drive Maintenance]   mug
+          east       [Sick Bay]                 n/a
+        south        [Science Lab]              molten lava (BAD)
+          east       [Observatory]              n/a
+          west       [Arcade]                   giant electromagnet (BAD)
+            south    [Kitchen]                  easter egg
+              west   [Security Checkpoint]      n/a
+                west [Pressure-Sensitive Floor] n/a
+
+To pass the Security Checkpoint you need to be carrying: astronaut ice cream,
+easter egg, mutex, tambourine.
+
+Minimal commands to pass the game:
+
+south
+east
+take mutex
+east
+take astronaut ice cream
+south
+take tambourine
+north
+west
+south
+south
+west
+south
+take easter egg
+west
+west
