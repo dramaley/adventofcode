@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $dial = 50;
+my $zeros = 0;
+
+foreach (map { chomp; $_; } <>) {
+    tr/LR/-/d;
+    $dial += $_;
+    $dial %= 100;
+    $zeros++ if $dial == 0;
+}
+
+print "${zeros}\n";

@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $dial = 50;
+my $zeros = 0;
+
+foreach (map { chomp; $_; } <>) {
+    tr/LR/-/d;
+    my $start = $dial;
+    $dial += $_;
+    if ($dial < 0) {
+        # How many times the dial rotates, with correction for starting at 0
+        my $rots = (($dial % 100) - $dial) / 100 - ($start == 0 ? 1 : 0);
+        $zeros += $rots;
+    }
+    if ($dial > 99) {
+        # How many times the dial rotates, with correction for ending at 0
+        my $rots = ($dial - ($dial % 100)) / 100 - ($dial % 100 == 0 ? 1 : 0);
+        $zeros += $rots;
+    }
+    $dial %= 100;
+    $zeros++ if $dial == 0;
+}
+
+print "${zeros}\n";
