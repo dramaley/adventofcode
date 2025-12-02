@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Playing around with a more functional style, just for fun. I haven't profiled
+# it to see just how clever the Perl compiler is, but am ...guessing... the
+# range operator (..) actually allocates an array, consuming lots of memory.
+#
+# Compared to the original solution in "part1", this takes 2.3 times as long
+# to run. Not bad. Note that this one does not have the optimization contained
+# in "part1" where we ignore odd numbers of digits. If that optimization is
+# removed before making the comparison, then this one only takes 1.8 times as
+# long.
+#
+# This solution could be obviously modified to be equivalent to "part2" just by
+# adding a "+" in the appropriate place in the regex.
+
+my $sum = 0;
+$sum += $_ foreach (grep { m/^(.+)\g{1}$/ }
+                    map { $$_[0]..$$_[1] }
+                    map { [ split /-/ ] }
+                    map { chomp; split /,/ } <>);
+print "${sum}\n";
