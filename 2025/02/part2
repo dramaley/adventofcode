@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $sum = 0;
+foreach (map { chomp; split /,/; } <>) {
+    my ($first, $last) = split /-/;
+
+    for (my $i = $first; $i <= $last; $i++) {
+        $sum += $i if $i =~ m/^(.+)\g{1}+$/;
+    }
+}
+print "${sum}\n";
