@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $len = 12;   # How long of a number to look for
+
+# This is the same as the Part 1 solution, but generalized for an arbitrary
+# number of digits, as specified in $len.
+my $sum = 0;
+foreach (map { chomp; $_; } <>) {
+    my (@digits) = split //;
+    my @ptrs;
+
+    # Find pointers to each requested digit
+    for (my $digit = $len - 1; $digit >= 0; $digit--) {
+        # Initialize the pointer to the next digit
+        push @ptrs, @ptrs ? $ptrs[-1] + 1 : 0;
+        # Scan over remaining digits and move the pointer if advantageous
+        for (my $i = $ptrs[-1] + 1; $i < @digits - $digit; $i++) {
+            $ptrs[-1] = $i if $digits[$i] > $digits[$ptrs[-1]];
+        }
+    }
+    # Extract the digits referred to by the pointers
+    $sum += join('', map { $digits[$_] } @ptrs);
+}
+print "${sum}\n";

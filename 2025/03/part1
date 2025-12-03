@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my $sum = 0;
+foreach (map { chomp; $_; } <>) {
+    my (@digits) = split //;
+
+    # Find pointer to the first digit
+    my $ptr = 0;
+    for (my $i = 1; $i < $#digits; $i++) {
+        $ptr = $i if $digits[$i] > $digits[$ptr];
+    }
+
+    # Find pointer to the second digit
+    my $ptr2 = $ptr + 1;
+    for (my $i = $ptr2; $i < @digits; $i++) {
+        $ptr2 = $i if $digits[$i] > $digits[$ptr2];
+    }
+
+    # Extract the two digits
+    $sum += $digits[$ptr] . $digits[$ptr2];
+}
+print "${sum}\n";
