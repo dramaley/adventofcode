@@ -1,0 +1,50 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Generalization of part1-fast.
+#
+# This one is 240 times faster than the original Part 2 solution!
+
+sub check_divisor {
+    my ($lower, $upper, $divisor) = @_;
+
+    # Save all IDs and pass them up, allowing the caller to manage duplicates.
+    # Duplicates may happen if, say, "222222" is an ID that matches. There are
+    # 3 unique ways to generate that: 222-222, 22-22-22, 2-2-2-2-2-2.
+    my @ids;
+    while ($lower <= $upper) {
+        my $lower_len = length($lower);
+        # Extract the first chunk
+        my $chunk = substr($lower, 0, $lower_len / $divisor);
+        if ($lower_len % $divisor == 0) {
+            # Number of digits is divisible; check this candidate for validity
+            my $candidate = $chunk x $divisor;
+            push @ids, $candidate
+                if $candidate >= $lower and $candidate <= $upper;
+        } else {
+            # Number of digits is not even; round up as high as possible
+            $chunk = 10 ** length($chunk) - 1;
+        }
+        # Prepare for the next iteration, which will check the next-higher chunk
+        $chunk++;
+        $lower = $chunk x $divisor;
+    }
+    return @ids;
+}
+
+my %ids;        # Use a hash at this level to avoid having to manage duplicates
+foreach (map { chomp; split /,/; } <>) {
+    my ($lower, $upper) = split /-/;
+
+    # Run the algorithm with all possible divisor lengths, collecting results
+    @ids{ &check_divisor($lower, $upper, $_) } = ()
+        foreach 2..length($upper);
+}
+
+# Add up the results collected earlier
+my $sum = 0;
+$sum += $_ foreach keys %ids;
+print "${sum}\n";

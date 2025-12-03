@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This is my 3rd solution for Part 1. The earlier versions use brute-force to
+# examine every number in the range. This one requires more code, but is more
+# elegant in that it only checks candidates that are likely to be useful. The
+# result is that it runs about 70 times faster than the 1st solution!
+
+my $sum = 0;
+foreach (map { chomp; split /,/; } <>) {
+    my ($lower, $upper) = split /-/;
+
+    while ($lower <= $upper) {
+        my $lower_len = length($lower);
+        my $chunk = substr($lower, 0, $lower_len / 2);  # Extract the first half
+        if ($lower_len % 2 == 0) {
+            # Number of digits is even; check this candidate for validity
+            my $candidate = $chunk x 2;
+            $sum += $candidate if $candidate >= $lower and $candidate <= $upper;
+        } else {
+            # Number of digits is not even; round up as high as possible
+            $chunk = 10 ** length($chunk) - 1;
+        }
+        # Prepare for the next iteration, which will check the next-higher chunk
+        $chunk++;
+        $lower = $chunk . $chunk;
+    }
+}
+print "${sum}\n";
