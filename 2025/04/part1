@@ -1,0 +1,36 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %rolls;                             # Paper roll locations; "row,col" keys
+our @adjacents = ([-1, -1], [-1,  0], [-1,  1], # Relative positions of adjacent
+                  [ 0, -1],           [ 0,  1], # paper rolls
+                  [ 1, -1], [ 1,  0], [ 1,  1]);
+
+# Read input
+while (<>) {
+    chomp;
+    while (m/@/g) {
+        # Found a roll; save its position
+        $rolls{join(',', $., pos)} = ();
+    }
+}
+
+# Find how many paper rolls have less than 4 adjacent rolls
+my $count = 0;
+foreach (keys %rolls) {
+    my ($row, $col) = split /,/;
+    # Number of adjacent rolls
+    my $adjacent = scalar @{[ # Check if the key exists
+                              grep { exists $rolls{$_} }
+                              # Flatten the reference into a %rolls key
+                              map { join(',', @$_) }
+                              # Calculate [ row, col ] locations to check
+                              map { [ $row+$$_[0], $col+$$_[1] ] }
+                              # Loop over positions adjacent to this one
+                              @adjacents ]};
+    $count++ if $adjacent < 4;
+}
+print "${count}\n";

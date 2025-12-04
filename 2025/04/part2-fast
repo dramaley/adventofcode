@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This version of the Part 2 solution makes a small tweak and removes a paper
+# roll as soon as possible, rather than collecting the rolls into batches and
+# removing them as a group. The result is that it runs roughly twice as fast.
+
+our %rolls;                             # Paper roll locations; "row,col" keys
+our @rel_loc = ([-1, -1], [-1,  0], [-1,  1],   # Relative locations of adjacent
+                [ 0, -1],           [ 0,  1],   # paper rolls
+                [ 1, -1], [ 1,  0], [ 1,  1]);
+
+# Read input
+while (<>) {
+    chomp;
+    while (m/@/g) {
+        # Found a roll; save its position
+        $rolls{join(',', $., pos)} = ();
+    }
+}
+
+# Remove all rolls that the forklift can access, keeping track of how many
+my $removals = 0;
+while (%rolls) {
+    # Find and remove accessible rolls (aka, have less than 4 adjacent rolls)
+    my $flag = $removals;
+    foreach my $location (keys %rolls) {
+        my ($row, $col) = split /,/, $location;
+
+        # Number of adjacent rolls
+        my $adjacent = scalar @{[ # Check if the key exists
+                                  grep { exists $rolls{$_} }
+                                  # Flatten the reference into a %rolls key
+                                  map { join(',', @$_) }
+                                  # Calculate [ row, col ] locations to check
+                                  map { [ $row+$$_[0], $col+$$_[1] ] }
+                                  # Loop over positions adjacent to this one
+                                  @rel_loc ]};
+        # Remove this roll, if possible
+        if ($adjacent < 4) {
+            $removals++;
+            delete $rolls{$location};
+        }
+    }
+    # Bail out if no rolls were removed
+    last if $flag == $removals;
+}
+print "${removals}\n";

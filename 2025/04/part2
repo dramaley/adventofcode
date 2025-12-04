@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %rolls;                             # Paper roll locations; "row,col" keys
+our @rel_loc = ([-1, -1], [-1,  0], [-1,  1],   # Relative locations of adjacent
+                [ 0, -1],           [ 0,  1],   # paper rolls
+                [ 1, -1], [ 1,  0], [ 1,  1]);
+
+# Read input
+while (<>) {
+    chomp;
+    while (m/@/g) {
+        # Found a roll; save its position
+        $rolls{join(',', $., pos)} = ();
+    }
+}
+
+# Remove all rolls that the forklift can access, keeping track of how many
+my $removals = 0;
+while (%rolls) {
+    # Find rolls that are removable (aka, have less than 4 adjacent rolls)
+    my @removable = ();
+    foreach my $location (keys %rolls) {
+        my ($row, $col) = split /,/, $location;
+        # Adjacent rolls
+        my @adjacents = (# Check if the key exists
+                         grep { exists $rolls{$_} }
+                         # Flatten the reference into a %rolls key
+                         map { join(',', @$_) }
+                         # Calculate [ row, col ] locations to check
+                         map { [ $row+$$_[0], $col+$$_[1] ] }
+                         # Loop over positions adjacent to this one
+                         @rel_loc);
+        push @removable, $location if @adjacents < 4;
+    }
+
+    # Bail out if no rolls were removable
+    last if not @removable;
+
+    # Remove the rolls
+    #print 'Removing ', scalar(@removable), " rolls\n";  # Show progress
+    $removals += @removable;
+    delete @rolls{@removable};
+}
+print "${removals}\n";
