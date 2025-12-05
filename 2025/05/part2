@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (@ranges, @ids);
+
+# Read ranges
+while (<>) {
+    chomp;
+    last if not $_;                             # End of the ranges section
+    push @ranges, [ split /-/ ];
+}
+
+# Read IDs
+#@ids = map { chomp; $_; } <>;
+
+# Consolidate overlapping ranges
+while (@ranges) {
+    my $changes = 0;
+    for (my $i = 0; $i < $#ranges; $i++) {
+        my ($i_lo, $i_hi) = @{$ranges[$i]};     # Assume these are sorted...
+        # Check if $range[$j] overlaps with $range[$i], merge if possible
+        for (my $j = $i+1; $j < @ranges; $j++) {
+            next if not $ranges[$j];
+            my ($j_lo, $j_hi) = @{$ranges[$j]}; # Assume sorted...
+
+            my $discard_j = 0;                  # Flag
+            if ($j_lo <= $i_lo) {
+                if ($i_hi <= $j_hi) {           # $j completely encloses $i
+                    $i_hi = $j_hi;
+                    $i_lo = $j_lo;
+                    $discard_j++;
+                } elsif ($i_lo <= $j_hi) {      # $j extends $i's range lower
+                    $i_lo = $j_lo;
+                    $discard_j++;
+                }
+            } elsif ($j_lo <= $i_hi) {
+                if ($j_hi <= $i_hi) {           # $j is completely inside of $i
+                    $discard_j++;
+                } else {                        # $j extends $i's range higher
+                    $i_hi = $j_hi;
+                    $discard_j++;
+                }
+            }
+            next if not $discard_j;             # No changes
+            $changes++;                         # Changes were made
+            splice @ranges, $j, 1;
+            redo;
+        }
+        $ranges[$i] = [ $i_lo, $i_hi ];         # Merge updates
+    }
+    last if not $changes;
+}
+
+# Count all the ranges
+my $count = 0;
+foreach (@ranges) {
+    my ($lo, $hi) = @$_;
+    $count += $hi - $lo + 1;
+}
+print "${count}\n";
