@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Get input
+my @input = map { chomp; s/^\s+|\s+$//g; [ split / +/ ] } <>;
+
+# Separate the operators
+my @operators = @{ pop @input };
+
+my $sum = 0;
+for (my $i = 0; $i < @operators; $i++) {
+    # Generate and solve a problem, add the result to the sum
+    $sum += eval join($operators[$i], map { $$_[$i] } @input);
+}
+print "${sum}\n";

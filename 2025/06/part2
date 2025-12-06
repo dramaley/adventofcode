@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# Get input
+my @input = map { chomp; $_; } <>;
+
+# Separate the operators
+my @operators = map { s/^\s+|\s+$//g; split / +/; } pop @input;
+
+# Split the input
+@input = map { [ split // ] } @input;
+
+my $sum = 0;
+while (@operators) {
+    my @numbers;
+    # Extract a number
+    while (my $n = join('', grep { defined and /\d/ } map { pop @$_ } @input)) {
+        push @numbers, $n;      # Save the number
+    }
+    # Solve this problem, add result to the sum
+    $sum += eval join(pop @operators, @numbers);
+}
+print "${sum}\n";
