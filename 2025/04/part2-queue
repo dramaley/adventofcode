@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This Part 2 final solution uses a queue to only recheck locations that are
+# adjacent to those where we removed a paper roll. This speeds things up
+# approximately 14 times over my original "part2" solution, and 7 times over
+# the "part2-fast" solution.
+
+our %rolls;                             # Paper roll locations; "row,col" keys
+our @rel_loc = ([-1, -1], [-1,  0], [-1,  1],   # Relative locations of adjacent
+                [ 0, -1],           [ 0,  1],   # paper rolls
+                [ 1, -1], [ 1,  0], [ 1,  1]);
+
+# Read input
+while (<>) {
+    chomp;
+    while (m/@/g) {
+        # Found a roll; save its position
+        $rolls{join(',', $., pos)} = ();
+    }
+}
+
+# Remove rolls the forklift can access, keeping track of how many were removed
+my (@queue) = keys %rolls;              # Locations to examine
+my $removals = 0;
+while (@queue) {
+    my $location = shift @queue;
+    next if not exists $rolls{$location};
+
+    my ($row, $col) = split /,/, $location;
+    # Adjacent rolls
+    my @adjacents = ( # Check if the key exists
+		      grep { exists $rolls{$_} }
+		      # Flatten the reference into a %rolls key
+		      map { join(',', @$_) }
+		      # Calculate [ row, col ] locations to check
+		      map { [ $row+$$_[0], $col+$$_[1] ] }
+		      # Loop over positions adjacent to this one
+		      @rel_loc );
+    # Remove this roll, if possible
+    if (@adjacents < 4) {
+	$removals++;
+	delete $rolls{$location};
+	# Re-check adjacent locations
+	push @queue, @adjacents;
+    }
+}
+print "${removals}\n";
