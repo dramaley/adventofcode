@@ -1,0 +1,34 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our %beams;     # Key = column of known beam; Value = how many paths led here
+
+while (<>) {
+    chomp;
+    if (not %beams and m/(?=[^.^])/g) { # Look for the start point
+        $beams{pos()} = 1;
+    }
+
+    my %splitters;
+    $splitters{pos()} = () while m/(?=\^)/g;    # Find the splitters
+    next if not %splitters;                     # Nothing to do this round
+
+    my %next_beams;
+    foreach my $this (keys %beams) {
+        if (exists $splitters{$this}) {         # Beam hits a splitter
+            $next_beams{$this-1} += $beams{$this};
+            $next_beams{$this+1} += $beams{$this};
+        } else {                                # No splitter, beam continues
+            $next_beams{$this} += $beams{$this};
+        }
+    }
+    %beams = %next_beams;
+}
+
+# Add up results
+my $count = 0;
+$count += $_ foreach values %beams;
+print "${count}\n";

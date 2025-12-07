@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+my %beams;                              # Column of each beam we're tracking
+my $count = 0;
+while (<>) {
+    chomp;
+    if (not %beams and m/(?=[^.^])/g) { # Look for the start point
+        $beams{pos()} = ();
+    }
+    #print join(', ', sort { $a <=> $b } keys %beams), "\n";
+
+    # Look for splitters
+    my %next_beams = %beams;
+    while (m/(?=\^)/g) {
+        my $this = pos();               # Column of this splitter
+        if (exists $beams{$this}) {     # Beam hits this splitter
+            $count++;
+            delete $next_beams{$this};
+            @next_beams{$this-1, $this+1} = ();
+        }
+    }
+    %beams = %next_beams;
+}
+print "${count}\n";
