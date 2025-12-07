@@ -1,0 +1,78 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This is a heavily-commented version of my Part 2 solution, since the actual
+# code is rather dense. I'll leave the original, light comments, and just add
+# to them.
+
+# Get input
+#
+# Read "map" right-to-left. The <> operator is somewhat magical and gives us
+# the lines of input, whether they came from a file or STDIN, whatever. Use map
+# to remove linefeeds and store the individual lines as list items in @input.
+my @input = map { chomp; $_; } <>;
+
+# Separate the operators
+#
+# "pop" the last line of input, which was the one with operators. Using map here
+# is a bit silly since we're only processing 1 line, but i like the way the
+# code flows. "s///" trims leading and trailing whitespace from the line,
+# "split" then splits the line on the intermediate whitespace. Result will be a
+# list where each item is an operator. For the sample: ('*', '+', '*', '+').
+my @operators = map { s/^\s+|\s+$//g; split / +/; } pop @input;
+
+# Split the input
+#
+# At this point, @input contains the lines with numbers, as strings. "map" works
+# on each line, splitting them from a string into a list of characters, and "[]"
+# casts that list of characters into a reference so we can store it. Note that
+# Perl doesn't have direct support for 2D arrays, but making a list of
+# references to other lists is how we build one anyway. So this line does heavy
+# lifting, converting our 1D list of strings into a 2D array of characters.
+@input = map { [ split // ] } @input;
+
+# Initialize a variable with our sum, pretty straightforward
+my $sum = 0;
+# The while loop is going to consume the operators, so use whether or not there
+# are operators remaining as a convenient way to continue or terminate the loop.
+while (@operators) {
+    # Declare @numbers as an empty array
+    my @numbers;
+    # Extract a number from the right column; loop ends on a column of spaces
+    #
+    # Here the crux of the matter, and a very heavy lifter. "map" loops over the
+    # @input list, which is references to character lists; "pop" returns the
+    # last character from each of those. Essentially, looking at the original
+    # input, "map" returns the rightmost column, as a list of characters. The
+    # first few repetitions (of the sample input) would be: (' ', ' ', '4'),
+    # ('4', '3', '1'), ('6', '2', '3'), and (' ', ' ', ' '), respectively.
+    # "grep" reduces that to just the numerical digits, so (' ', ' ', '4') would
+    # become ('4'), the next 2 lines would pass through unchanged, and the one
+    # of all spaces would be an empty set. "join" concatenates the characters
+    # into strings, '4', '431', '623', and undef, respectively, which are
+    # assigned in turn to $n. Note that a column consisting entirely of spaces
+    # will be reduced to the undefined value, which will cause the "while" to
+    # terminate, thus separating the input into the separate problems.
+    while (my $n = join('', grep { defined and /\d/ } map { pop @$_ } @input)) {
+        # Take the number saved in $n and add it to the @numbers list
+        push @numbers, $n;      # Save the number
+    }
+    # Solve this problem, add result to the sum
+    #
+    # At this point, @numbers will be a list of the numbers from the
+    # rightmost column of the input. (And note the popping above will have
+    # consumed those characters from the @input data structure, so our next trip
+    # through the greater "while (@operators)" loop will work on the
+    # next-rightmost column of numbers.) "pop @operators" gives the rightmost
+    # operator, which will be the one that matches up with the numbers in
+    # @numbers. As an example, the first time we get here, @numbers will be
+    # ('4', '431', '623'), and the returned operator will be '+'. The "join"
+    # converts those things into a single string, "4+431+623", and "eval" parses
+    # that, giving 1058, which is added to $sum.
+    $sum += eval join(pop @operators, @numbers);
+}
+# Show the final result.
+print "${sum}\n";

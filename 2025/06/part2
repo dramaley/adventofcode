@@ -16,7 +16,7 @@ my @operators = map { s/^\s+|\s+$//g; split / +/; } pop @input;
 my $sum = 0;
 while (@operators) {
     my @numbers;
-    # Extract a number
+    # Extract a number from the right column; loop ends on a column of spaces
     while (my $n = join('', grep { defined and /\d/ } map { pop @$_ } @input)) {
         push @numbers, $n;      # Save the number
     }
