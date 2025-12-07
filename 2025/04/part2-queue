@@ -33,19 +33,19 @@ while (@queue) {
     my ($row, $col) = split /,/, $location;
     # Adjacent rolls
     my @adjacents = ( # Check if the key exists
-		      grep { exists $rolls{$_} }
-		      # Flatten the reference into a %rolls key
-		      map { join(',', @$_) }
-		      # Calculate [ row, col ] locations to check
-		      map { [ $row+$$_[0], $col+$$_[1] ] }
-		      # Loop over positions adjacent to this one
-		      @rel_loc );
+                      grep { exists $rolls{$_} }
+                      # Flatten the reference into a %rolls key
+                      map { join(',', @$_) }
+                      # Calculate [ row, col ] locations to check
+                      map { [ $row+$$_[0], $col+$$_[1] ] }
+                      # Loop over positions adjacent to this one
+                      @rel_loc );
     # Remove this roll, if possible
     if (@adjacents < 4) {
-	$removals++;
-	delete $rolls{$location};
-	# Re-check adjacent locations
-	push @queue, @adjacents;
+        $removals++;
+        delete $rolls{$location};
+        # Re-check adjacent locations
+        push @queue, @adjacents;
     }
 }
 print "${removals}\n";
