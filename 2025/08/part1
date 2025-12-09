@@ -1,0 +1,96 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# How many connections to make
+#our $connections = 10;     # Sample input
+our $connections = 1000;    # Real input
+
+# ==============================================================================
+#  This problem is best solved with a Disjoint Set Union. To accomplish that,
+#  a few functions and variables are required.
+#
+#  See: https://cp-algorithms.com/data_structures/disjoint_set_union.html
+# ==============================================================================
+
+our (%dsu_parent, %dsu_size);
+
+# ------------------------------------------------------------------------------
+#  Create a new set consisting of the provided element
+# ------------------------------------------------------------------------------
+sub dsu_init {
+    my ($v) = @_;
+    # Create a tree with root vertex $v; it is its own ancestor
+    $dsu_parent{$v} = $v;
+    # Keep track of the size of each graph
+    $dsu_size{$v} = 1;
+}
+
+# ------------------------------------------------------------------------------
+#  Find and return the representative (or leader) of the set containing the
+#  given element
+# ------------------------------------------------------------------------------
+sub dsu_find {
+    my ($v) = @_;
+    return $v if $v eq $dsu_parent{$v};
+    # The assignment updates visited nodes so they are attached directly to
+    # their representative, and not via a long chain of nodes.
+    return $dsu_parent{$v} = &dsu_find($dsu_parent{$v});
+}
+
+# ------------------------------------------------------------------------------
+#  Merge the 2 specified sets
+# ------------------------------------------------------------------------------
+sub dsu_union {
+    my ($a, $b) = @_;
+    $a = &dsu_find($a);
+    $b = &dsu_find($b);
+    # Nothing to do; given nodes are already connected
+    return if $a eq $b;
+    # Swap the arguments so $a is the larger one
+    ($b, $a) = ($a, $b) if $dsu_size{$a} < $dsu_size{$b};
+    $dsu_parent{$b} = $a;               # Connect $b to $a
+    $dsu_size{$a} += $dsu_size{$b};     # Update $a's size
+    delete $dsu_size{$b};               # $b is no longer a set leader
+}
+
+# ------------------------------------------------------------------------------
+#  And now back to our regularly scheduled program...
+# ------------------------------------------------------------------------------
+
+# Read input
+our (@boxes) = map { chomp; [ split /,/ ] } <>;
+
+# Calculate distances between boxes
+our %distances;
+for (my $i = 0; $i < $#boxes; $i++) {
+    for (my $j = $i+1; $j < @boxes; $j++) {
+        # Distance between points.
+        # Technically we should take the square root of this to get the real
+        # distance. But we're just going to be comparing these to each other,
+        # and the relationships will be the same without applying sqrt, so
+        # might as well not waste the CPU time.
+        my $distance = (($boxes[$i][0] - $boxes[$j][0]) ** 2 +
+                        ($boxes[$i][1] - $boxes[$j][1]) ** 2 +
+                        ($boxes[$i][2] - $boxes[$j][2]) ** 2);
+        # Save the computation. Note: The data set was examined and there were
+        # no collisions, so it is safe to keep things simple here.
+        $distances{$distance} = [ $i, $j ];
+    }
+}
+
+# Initialize a disjoint set for each junction box
+&dsu_init($_) foreach 0..$#boxes;
+
+# Take the first $connections shortest distances, and join those boxes
+foreach ((sort { $a <=> $b } keys %distances)[0..$connections-1]) {
+    my ($i, $j) = @{$distances{$_}};
+    &dsu_union($i, $j);
+}
+
+# Generate the result by multiplying the 3 largest set sizes
+my $result = 1;
+$result *= $_ foreach (sort { $b <=> $a } values %dsu_size)[0..2];
+print "${result}\n";
