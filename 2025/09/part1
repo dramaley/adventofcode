@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (@input) = map { chomp; [ split /,/ ] } <>;
+
+# Find the rectangle with the largest area
+my $area = 0;
+for (my $i = 0; $i < $#input; $i++) {
+    for (my $j = $i+1; $j < @input; $j++) {
+        my $this = ((abs($input[$i][0] - $input[$j][0]) + 1) *
+                    (abs($input[$i][1] - $input[$j][1]) + 1));
+        $area = $this if $this > $area;
+    }
+}
+print "${area}\n";
