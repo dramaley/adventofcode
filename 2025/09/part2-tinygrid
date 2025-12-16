@@ -1,0 +1,123 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+# This puzzle involves a grid containing a filled polygon, where we have to find
+# the largest rectangle that is completely contained within the filled space. As
+# a further constraint, 2 corners of the rectangle must be "red" tiles, meaning
+# points included in the input.
+#
+# The input describes a grid that is quite large and would be both memory and
+# CPU intensive to create at full scale. So, the approach here is to build a
+# smaller version of the puzzle grid that is equivalent to the real one in terms
+# of the spatial relationships between points. Then find valid rectangles on the
+# smaller grid, but use the sizes from the "real" grid to determine area of the
+# found rectangles.
+
+our (@input) = map { chomp; [ split /,/ ] } <>;
+
+# Find points that define the small version of the grid. Note that the first
+# points in @shrunk and @input are equivalent, same for the second points, etc.
+our @shrunk;
+{   # Get unique columns and rows that are in use
+    my (%cols, %rows);
+    @cols{ map { $$_[0] } @input } = ();
+    @rows{ map { $$_[1] } @input } = ();
+    # Assign ordering.
+    # Note that the given input was crafted such that incrementing by 1 works,
+    # but for other inputs it may be necessary to increment by 2 to guarantee
+    # tight concave outlines remain distinct after being filled in.
+    #
+    # Incrementing by 1 instead of 2 means the shrunken grid is half the size,
+    # and the program runs in about half the time.
+    my $i = 0;
+    $cols{$_} = $i++ foreach sort { $a <=> $b } keys %cols;
+    $i = 0;
+    $rows{$_} = $i++ foreach sort { $a <=> $b } keys %rows;
+    # Create a shrunken version of the input
+    @shrunk = map { [ $cols{$$_[0]}, $rows{$$_[1]} ] } @input;
+}
+
+# Create the shrunken grid
+our @grid;
+{   # Initialize the grid to zeroes
+    my $max_col = (sort { $a <=> $b } map { $$_[0] }  @shrunk)[-1];
+    my $max_row = (sort { $a <=> $b } map { $$_[1] }  @shrunk)[-1];
+    foreach (0..$max_row) {
+        push @grid, [ (0) x ($max_col + 1) ];
+    }
+    # Draw the lines for each side of the polygon
+    for (my $i = 0; $i < @shrunk; $i++) {
+        my ($col1, $row1) = @{$shrunk[$i]};
+        my ($col2, $row2) = @{$shrunk[($i+1) % @shrunk]};
+        # Draw this line
+        if ($row1 == $row2) {
+            ($col1, $col2) = ($col2, $col1) if $col1 > $col2;   # Ensure order
+            $grid[$row1][$_] = 1 foreach $col1..$col2;
+        } else {
+            ($row1, $row2) = ($row2, $row1) if $row1 > $row2;   # Ensure order
+            $grid[$_][$col1] = 2 foreach $row1..$row2;
+        }
+    }
+    # Find a point inside the border from which to initiate a flood fill
+    my ($fill_col, $fill_row) = (0, 0);
+    while ($fill_row < @shrunk) {
+        # Find the first occupied column in this row
+        $fill_col++ until $grid[$fill_row][$fill_col];
+        # Then look beyond it by 1
+        $fill_col++;
+        # Not part of the border, therefore inside, so we're done
+        last if not $grid[$fill_row][$fill_col];
+        # Set up for the next iteration
+        $fill_col = 0;
+        $fill_row++;
+    }
+    # Now flood-fill the polygon
+    my @queue = ([$fill_col, $fill_row]);
+    while (@queue) {
+        my ($col, $row) = @{ shift @queue };
+        next if $grid[$row][$col];      # Been here before
+        $grid[$row][$col] = 1;
+        push @queue, ([$col-1, $row], [$col, $row-1],
+                      [$col+1, $row], [$col, $row+1] );
+    }
+}
+
+# Now look for the rectangle with the largest area
+my $area = 0;
+for (my $i = 0; $i < $#shrunk; $i++) {
+  NEXT:
+    for (my $j = $i+1; $j < @shrunk; $j++) {
+        # Propose a rectangle using points $i and $j as opposite corners.
+        # Determine if it is completely contained within the polygon
+        my ($col1, $row1) = @{$shrunk[$i]};
+        my ($col2, $row2) = @{$shrunk[$j]};
+        ($col1, $col2) = ($col2, $col1) if $col1 > $col2;   # Ensure order
+        ($row1, $row2) = ($row2, $row1) if $row1 > $row2;   # Ensure order
+        # Check the top and bottom of the rectangle are in the polygon
+        foreach my $col ($col1..$col2) {
+            next NEXT if not $grid[$row1][$col];
+            next NEXT if not $grid[$row2][$col];
+        }
+        # Check the left and right sides of the rectangle are in the polygon
+        foreach my $row ($row1..$row2) {
+            next NEXT if not $grid[$row][$col1];
+            next NEXT if not $grid[$row][$col1];
+        }
+
+        # This is logically equivalent to the 2 foreach loops directly above,
+        # and does not require labeling the for loop, but runs 30 times slower!
+        #next if (grep { not $grid[$$_[0]][$$_[1]] }
+        #         ((map { [$row1, $_], [$row2, $_] } $col1..$col2),
+        #          (map { [$_, $col1], [$_, $col2] } $row1..$row2)));
+
+        # Rectangle is valid, now compare its area. Recall that @shrunk and
+        # @input points are equivalent
+        my $this = ((abs($input[$i][0] - $input[$j][0]) + 1) *
+                    (abs($input[$i][1] - $input[$j][1]) + 1));
+        $area = $this if $this > $area;
+    }
+}
+print "${area}\n";
