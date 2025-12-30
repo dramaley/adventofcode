@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+use List::Util::XS;
+use List::Util qw/sum/;
+
+my $total = 0;
+foreach my $line (<>) {
+    # Extract the indicator light diagram and convert it into a bitmask
+    # representing the desired result
+    my $goal = 0;
+    {   my ($diagram) = $line =~ m/\[(.*)\]/;
+        $goal += 2 ** $-[0] while $diagram =~ m/#/g;
+    }
+
+    # Extract button wiring schematics and convert them into bitmasks
+    my @buttons = (map { sum map { 2 ** $_ } split /,/ }
+                   $line =~ m/\(([0-9,]+)\)/g);
+
+    # Breadth-first search
+    my %seen = (0 => 1);
+    my @queue = ([ 0, 0 ]); # button presses, state of indicator lights
+    while (@queue) {
+        my ($presses, $state) = @{ shift @queue };
+        # Reached the goal!
+        if ($state == $goal) {
+            $total += $presses;
+            last;
+        }
+        # Try pushing all the buttons
+        push @queue, ( map { [ $presses+1, $_ ] } # Set up the queue entry
+                       grep { not $seen{$_}++ }   # Avoid retracing our steps
+                       map { $state ^ $_ }        # Push the button
+                       @buttons );                # For each button
+    }
+}
+print "${total}\n";

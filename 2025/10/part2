@@ -1,0 +1,155 @@
+#!/usr/bin/perl
+
+use 5.10.1;
+use strict;
+use warnings 'all';
+use List::Util::XS;
+use List::Util qw/all min none/;
+
+# I struggled with this problem. I know the "right" approach involves linear
+# programming. But i find that to be difficult. After much contemplation on this
+# problem, i decided to look at what others have done. My solution is an
+# implementation of the ideas presented by user "tenthmascot" on Reddit, in
+# their post "Bifurcate your way to victory!". Perhaps this link still works:
+#     https://www.reddit.com/r/adventofcode/comments/1pk87hl/2025_day_10_part_
+#     2_bifurcate_your_way_to_victory/
+#
+# The basic idea is, working backwards from the goal, find a sequence of button
+# pushes that results in all the counters being even numbers. Keep track of how
+# many pushes that took, but then divide all of the counters by 2 and start the
+# process over (using a recursive function). If a solution is found, multiply it
+# by 2 to account for the earlier division and add the button presses that were
+# necessary to get all the counters to be even.
+#
+# The algorithm sounds a bit odd at first, but the divisions by 2 result in a
+# very significant performance improvement, since each of those cuts in half the
+# amount of searching the algorithm does. Overall, this is a depth-first search,
+# just heavily optimized.
+
+
+# ------------------------------------------------------------------------------
+#   Given a set and number of elements to combine, return all combinations.
+#   An empty set will be returned if the number of elements requested is out
+#   of range: either zero or more than the number of elements in the set.
+#   Note that the set is assumed to consist of unique elements.
+# ------------------------------------------------------------------------------
+sub combine {
+    my ($set, $k) = @_;
+    return map { [$_] } @$set if $k == 1;
+    return [] if $k < 1;
+
+    my @comb;
+    for (my $i = 0; $i+$k <= @$set; $i++) {
+        my $car = $$set[$i];
+        my @cdr = @$set[$i+1..$#$set];
+        push @comb, [$car, @$_] foreach &combine(\@cdr, $k-1);
+    }
+    return @comb;
+}
+
+# ------------------------------------------------------------------------------
+#   This function populates @patterns, a somewhat complex structure:
+#
+#   Each array entry contains a hash. Keys indicate how much a combination of
+#   button pushes will increment each counter. Values are the minimum cost
+#   (how many button pushes that combination requires).
+#
+#   These relationships between effects on the counters and their costs are
+#   sorted based on which counters flip between odd or even numbers. Flipped
+#   counters are used in a bitmask to generate the overall array indices. For
+#   example, if there are 5 counters and the 3rd one changes odd/even status,
+#   that would be an index of 0b00100, or 4. The range of indices will thus
+#   depend on how many counters there are. For 5 counters, that would be
+#   0b00000 to 0b11111, or 0 to 31.
+# ------------------------------------------------------------------------------
+sub make_patterns {
+    my ($buttons, $num_bits) = @_;
+    my @patterns;
+
+    # Loop over how many buttons we can push at once to change the state of the
+    # indicator lights. Note that pushing a button twice just toggles the lights
+    # back to what they were, so it does not make sense to do that here.
+    foreach my $concurrent (0..@$buttons) {
+        # Loop over all combinations of $concurrent button presses
+        foreach my $pressed_indices (&combine([ 0..$#$buttons ], $concurrent)) {
+            # Push the buttons and record how much each counter increments
+            my @incrs = (0) x $num_bits;
+            foreach my $button (@$buttons[@$pressed_indices]) {
+                $incrs[$_]++ foreach @$button;
+            }
+            # Get counters with odd values and distill them into a single number
+            my $parity = 0;
+            $parity += 2 ** $_ foreach grep { $incrs[$_] % 2 } 0..$#incrs;
+            # Save results.
+            my $increments = join(',', @incrs);
+            $patterns[$parity]{$increments} //= $concurrent;
+        }
+    }
+    return @patterns;
+}
+
+# ------------------------------------------------------------------------------
+#   The outer &solve function exists to set scope for the memoization cache
+# ------------------------------------------------------------------------------
+{
+    my %cache;      # Memoization
+    my @patterns;   # Pre-computed patterns
+
+    # --------------------------------------------------------------------------
+    #   Solve a single puzzle
+    # --------------------------------------------------------------------------
+    sub solver {
+        my ($goal) = @_;
+        return 0 if none { $_ } @$goal;     # All done if the goal is 0
+        my $cache_key = join(',', @$goal);
+        return $cache{$cache_key} if exists $cache{$cache_key};
+
+        my $result = ~0;                    # Assume the worst possible outcome
+
+        my $parity = 0;                     # Find the necessary parity
+        $parity += 2 ** $_ foreach grep { $$goal[$_] % 2 } 0..$#$goal;
+        # Loop over the patterns that will ensure all counters are even
+        foreach my $incrs (sort keys %{$patterns[$parity]}) {
+            my $cost = ${$patterns[$parity]}{$incrs};
+            my @increments = map { int } split /,/, $incrs;
+            # Check if it is possible to subtract these increments from the goal
+            if (all { $increments[$_] <= $$goal[$_] } 0..$#$goal) {
+                # Cut the goal in half
+                my @new_goal = map { ($$goal[$_]-$increments[$_])/2 } 0..$#$goal;
+                # Solve the smaller goal
+                $result = min($result, $cost + 2 * &solver(\@new_goal));
+            }
+        };
+        $cache{$cache_key} = $result;
+        return $result;
+    }
+
+    # --------------------------------------------------------------------------
+    #   Simple wrapper to initialize variables before the recursive solver
+    # --------------------------------------------------------------------------
+    sub solve {
+        my ($buttons, $goal) = @_;
+        # Initialize shared variables
+        %cache = ();
+        @patterns = &make_patterns($buttons, scalar(@$goal));
+
+        &solver($goal);
+    }
+}
+
+# Parse each line of input and pass it to &solve
+my $total = 0;
+while (my $line = <>) {
+    # Extract button wiring schematics
+    my (@buttons) = map { [ map { int } split /,/ ] } $line =~ m/\(([0-9,]+)\)/g;
+
+    # Extract the goal values
+    my ($goal_str) = $line =~ m/\{([0-9,]+)\}/;
+    my (@goal) = map { int } split /,/, $goal_str;
+
+    #$total += &solve(\@buttons, \@goal);
+    my $subtotal = &solve(\@buttons, \@goal);
+    print "Line $.: ${subtotal}\n";     # Debuggery stuff
+    $total += $subtotal;
+}
+print "${total}\n";
