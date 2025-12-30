@@ -147,9 +147,6 @@ while (my $line = <>) {
     my ($goal_str) = $line =~ m/\{([0-9,]+)\}/;
     my (@goal) = map { int } split /,/, $goal_str;
 
-    #$total += &solve(\@buttons, \@goal);
-    my $subtotal = &solve(\@buttons, \@goal);
-    print "Line $.: ${subtotal}\n";     # Debuggery stuff
-    $total += $subtotal;
+    $total += &solve(\@buttons, \@goal);
 }
 print "${total}\n";
