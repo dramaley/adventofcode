@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util::XS;
+use List::Util qw/sum/;
+
+our (@pieces, @regions);
+
+# Parse input
+my $index;
+while (<>) {
+    chomp;
+    /^(\d+):$/                && do { $index = $1;                 next; };
+    /^([#.]+)$/               && do { push @{$pieces[$index]}, $_; next; };
+    /^(\d+)x(\d+): ([\d ]+)$/ && do {
+        push @regions, [ $1, $2, split(/ /, $3) ];
+        next;
+    };
+}
+
+# Get the filled area for each piece
+our @filled = map { tr/#// } map { join('', @$_) } @pieces;
+
+# Note: The actual puzzle input is super contrived such that the space we have
+# available for the pieces is large enough that we don't need to pack them and
+# can just use a stupidly simple test.
+my $count = 0;
+foreach (@regions) {
+    my ($x, $y, @quantities) = @$_;
+    my $total_pieces = sum(@quantities);
+    $count++ if $x * $y - 9 * $total_pieces >= 0;
+}
+say $count;
