@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Trying out modern function definitions
+use strict;
+use warnings 'all';
+use List::Util::XS;
+use List::Util qw/product sum/;
+
+# My first thought for this problem was to find all paths through the graph,
+# discard those that did not include our special nodes "dac" and "fft", and
+# count what was left. The Part 1 solution with a breadth-first search was not
+# appropriate for this, due to the size of the graph. While considering a
+# depth-first search, it seems the problem space could be reduced. Instead of
+# traversing the entire graph, it is possible to consider subsets of it that
+# are considerably smaller. We really have 2 routes to consider:
+#     svr -> dac -> fft -> out
+#     svr -> fft -> dac -> out
+# Notice that there are 6 small paths (denoted by arrows), 3 per each route.
+# Solving 6 small problems is faster than solving 1 huge problem. So, solve the
+# paths for a route and multiply them together to get the total paths for that
+# route. Do that for the other route and add the routes together. Done!
+
+# Route definitions
+our @route1 = (['svr', 'dac'], ['dac', 'fft'], ['fft', 'out']);
+our @route2 = (['svr', 'fft'], ['fft', 'dac'], ['dac', 'out']);
+
+# Parse input
+our (%input) = (map { $$_[0] => [ split / /, $$_[1] ] }
+                map { chomp; [ split /: / ] } <>);
+$input{'out'} = [];     # Define so nodes that point to it aren't dangling
+
+# Count the paths between a given source and destination node by working
+# backwards from the destination.
+sub count_paths ($src, $dst) {
+    my (%paths, %new_paths);
+
+    @paths{keys %input} = (0) x %input; # Initialize paths to 0
+    $paths{$dst} = 1;                   # Seed the end with 1
+
+    my $updates;                        # Count updates on each iteration
+    do {
+        $updates = 0;
+        %new_paths = %paths;
+        # Loop over all nodes except $dst
+        foreach my $node (grep { $_ ne $dst } keys %new_paths) {
+            # "// 0" catches the "out" node
+            my $new_count = sum(map { $new_paths{$_} } @{$input{$node}}) // 0;
+            if ($paths{$node} != $new_count) {
+                $paths{$node} = $new_count;
+                $updates++;
+            }
+        }
+    } until $updates == 0;
+    return $paths{$src};
+}
+
+my $route1 = product map { &count_paths(@$_) } @route1;
+my $route2 = product map { &count_paths(@$_) } @route2;
+
+say $route1 + $route2;

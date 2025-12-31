@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use 5.8.1;
+use strict;
+use warnings 'all';
+
+our (%input) = (map { $$_[0] => [ split / /, $$_[1] ] }
+                map { chomp; [ split /: / ] } <>);
+
+# Simple breadth-first search
+my $count = 0;
+my @queue = (['you']);
+while (@queue) {
+    my (@path) = @{ shift @queue };
+    my $tail = $path[-1];               # Last item in the list
+    if ($tail eq 'out') {
+        $count++;                       # Reached the goal
+    } else {
+        # Follow all possible paths
+        push @queue, map { [ @path, $_ ] } @{ $input{$tail} };
+    }
+}
+print "${count}\n";
