@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use v5.36.0;
+
+our @input = map { int } <>;
+
+my %seen;
+my $freq = 0;
+for (my $i = 0; ; $i++) {
+    $freq += $input[$i % @input];
+    if ($seen{$freq}++) {
+        say $freq;
+        last;
+    }
+}
