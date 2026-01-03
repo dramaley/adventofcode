@@ -3,3 +3,6 @@
 use v5.36.0;
 
 say eval 0 . do { local $/ = <> };
+
+# If you want to play code golf, here's the best i could do; 18 characters:
+# say eval join"",<>
