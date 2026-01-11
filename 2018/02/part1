@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use v5.36.0;
+
+my ($two, $three);
+while (<>) {
+    chomp;
+    my %hash;
+    $hash{$_}++ foreach split //;
+    %hash = reverse %hash;
+    $two++ if exists $hash{2};
+    $three++ if exists $hash{3};
+}
+say $two * $three;

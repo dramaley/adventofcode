@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use v5.36.0;
+
+our @data = map { chomp; $_ } <>;
+while (@data) {
+    my $this = pop @data;
+    foreach (map { "${this} $_" } @data) {
+        if (m/^(\w*)(\w)(\w*) \g1.\g3$/) {
+            substr $this, length($1), 1, '';
+            say $this;
+            exit;
+        }
+    }
+}
