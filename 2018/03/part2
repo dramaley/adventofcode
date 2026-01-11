@@ -1,0 +1,20 @@
+#!/usr/bin/perl
+
+use v5.36.0;
+
+my (%grid, %ids);
+while (<>) {
+    my ($id, $x0, $y0, $wide, $tall) = m/^#(\d+) @ (\d+),(\d+): (\d+)x(\d+)$/;
+    # Keep track of IDs we've seen
+    $ids{$id} = ();
+    # Not the most efficient way, but works for this scale
+    foreach my $x ($x0..$x0+$wide-1) {
+        foreach my $y ($y0..$y0+$tall-1) {
+            push @{ $grid{"${x},${y}"} }, $id;
+        }
+    }
+}
+# Remove IDs that had overlaps
+delete @ids{ map { @$_ > 1 ? @$_ : () } values %grid };
+# Show what's left (should only be 1)
+say $_ foreach keys %ids;
