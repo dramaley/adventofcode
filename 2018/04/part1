@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+
+use v5.36.0;
+use List::Util qw/sum/;
+
+our %guards;
+
+# Keep tallies of what minutes each guard is asleep
+my ($guard, $asleep);
+foreach (sort <>) {
+    my $minutes = (m/ \d{2}:(\d{2})\]/)[0];
+    /Guard #(\d+)/ && do { $guard = $1;
+                           next; };
+    /falls asleep/ && do { $asleep = $minutes;
+                           next; };
+    /wakes up/     && do { $guards{$guard}{$_}++ foreach $asleep..$minutes-1;
+                           next; };
+}
+
+# Find the sleepiest guard using the Schwartzian Transform
+my $sleepy = (map { $_->[0] }
+              sort { $a->[1] <=> $b->[1] }
+              map { [ $_, sum(values %{$guards{$_}} ) ] }
+              keys %guards)[-1];
+
+# Find the minute the guard sleeps the most, again using the Schwartz
+my $minute = (map { $_->[0] }
+              sort { $a->[1] <=> $b->[1] }
+              map { [ $_, ${$guards{$sleepy}}{$_} ] }
+              keys %{$guards{$sleepy}})[-1];
+
+say $sleepy * $minute;

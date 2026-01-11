@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use v5.36.0;
+use List::Util qw/product/;
+
+our %guards;
+
+# Keep tallies of what minutes each guard is asleep
+my ($guard, $asleep);
+foreach (sort <>) {
+    my $minutes = (m/ \d{2}:(\d{2})\]/)[0];
+    /Guard #(\d+)/ && do { $guard = $1;
+                           next; };
+    /falls asleep/ && do { $asleep = $minutes;
+                           next; };
+    /wakes up/     && do { $guards{$guard}{$_}++ foreach $asleep..$minutes-1;
+                           next; };
+}
+
+# Process guard data so the amount of sleep points to the guard ID + minute
+my %processed = map { my %rev = reverse %{$guards{$_}};
+                      my $key = (sort { $a <=> $b } keys %rev)[-1];
+                      $key => [ $_, $rev{$key} ] } keys %guards;
+
+my $key = (sort { $a <=> $b } keys %processed)[-1];
+say product(@{$processed{$key}});
