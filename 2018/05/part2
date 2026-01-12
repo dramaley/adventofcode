@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+sub react ($string) {
+    1 while $string =~ s/Aa|aA|Bb|bB|Cc|cC|Dd|dD|Ee|eE|Ff|fF|Gg|gG|Hh|hH|Ii|iI|Jj|jJ|Kk|kK|Ll|lL|Mm|mM|Nn|nN|Oo|oO|Pp|pP|Qq|qQ|Rr|rR|Ss|sS|Tt|tT|Uu|uU|Vv|vV|Ww|wW|Xx|xX|Yy|yY|Zz|zZ//g;
+    return length $string;
+}
+
+our $input = <>;
+chomp $input;
+my $length = ~0;
+foreach my $letter ('A'..'Z') {
+    (my $string = $input) =~ s/${letter}//gi;
+    my $len = &react($string);
+    $length = $len if $len < $length;
+}
+say $length;
+
+#say &react($input);
+
+
+
+
+
+#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
+#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
