@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+#our $num_workers = 2; our $offset = ord('A') - 1;       # Sample
+our $num_workers = 5; our $offset = ord('A') - 61;      # Real data
+
+
+our %deps;      # Track dependencies
+our %seen;      # Track letters that have been seen
+our %avail;     # Letters currently available
+
+foreach (map { [ m/Step (\w) must be finished before step (\w) can begin./ ] } <>) {
+    my ($one, $two) = @$_;
+    @seen{$one, $two} = ();
+    $deps{$two}{$one} = ();
+}
+@avail{ grep { not exists $deps{$_} } keys %seen } = ();
+
+my $time = 0;
+my %workers;    # Track workers. Hash associates letter with its completion time
+my $order = ''; # Not strictly necessary this time...
+
+while (%avail or %workers) {
+    # Advance the clock if all workers are busy
+    if (keys(%workers) == $num_workers or not %avail) {
+        my $new_time = (sort { $a <=> $b } values %workers)[0];
+        $time = $new_time if $new_time > $time;
+    }
+
+    # Process completed letters
+    foreach my $letter (# Schwartzian transform
+                     map { $$_[0] }
+                     sort { $$a[1] <=> $$b[1] or $$a[0] cmp $$b[0] }
+                     map { [ $_, $workers{$_} ] }
+                     # Select workers that are done
+                     grep { $workers{$_} <= $time }
+                     keys %workers) {
+        $order .= $letter;
+        delete $workers{$letter};
+
+        # Remove the letter
+        foreach my $remove (grep { exists $deps{$_}{$letter} } keys %deps) {
+            delete $deps{$remove}{$letter};
+            # If no dependencies left, mark it available
+            if (not %{$deps{$remove}}) {
+                delete $deps{$remove};
+                $avail{$remove} = ();
+            }
+        }
+    }
+
+    while (keys(%workers) < $num_workers and %avail) {
+        # Select the next letter from those available
+        my $letter = (sort keys %avail)[0];
+        delete $avail{$letter};
+        # Start working on it
+        $workers{$letter} = $time + ord($letter) - $offset;
+    }
+}
+
+say $time;
+#say $order;
