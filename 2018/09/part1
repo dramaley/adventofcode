@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/max/;
+
+our ($num_players, $last_marble) =
+    map { m/(\d+) players; last marble is worth (\d+) points/ } <>;
+
+my @scores;
+my @circle = (0);
+my $i = 0;
+for (my $marble = 1; $marble <= $last_marble; $marble++) {
+    if ($marble % 23 == 0) {
+        $i = ($i - 7) % @circle;
+        $scores[$marble % $num_players] += $marble + splice(@circle, $i, 1);
+        $i = $i % @circle;
+    } else {
+        $i = ($i + 2) % @circle;
+        splice(@circle, $i, 0, $marble);
+    }
+}
+say max(grep { defined } @scores);
