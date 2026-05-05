@@ -8,8 +8,15 @@ our ($num_players, $last_marble) =
 
 $last_marble *= 100;
 
+# This solution assumes the current position is always at index 0, and only
+# manipulates the ends of the list. (Unlike the original solution which moves
+# the pointer around and manipulates the middle of the list.) Perl is fast at
+# manipulating the ends of a list, but slow manipulating the middle. So, while
+# this solution is perhaps not as fast as a doubly-linked list would be, it was
+# a lot easier to implement. And it runs in just a few seconds. Good Enough.
+
 my @scores;
-my @circle = (0);       # Assume index 0 is the current marble
+my @circle = (0);
 for (my $marble = 1; $marble <= $last_marble; $marble++) {
     if ($marble % 23) {
         my @chunk = splice(@circle, 0, 2 % @circle);
