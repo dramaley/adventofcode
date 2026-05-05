@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+use List::Util qw/sum/;
+
+our @input = map { int } map { chomp; split / / } <>;
+
+my $sum = 0;
+
+sub parse {
+    my ($num_children, $num_metadata) = splice(@input, 0, 2);
+
+    my @children;
+    while ($num_children) {
+        $num_children--;
+        push @children, &parse;
+    }
+    my @metadata = splice(@input, 0, $num_metadata);
+    $sum += sum(@metadata);
+    return { 'children' => \@children, 'metadata' => \@metadata };
+}
+
+my $href = &parse;
+say $sum;
