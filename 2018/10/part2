@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/max min/;
+
+our @input;
+{   my $regex = 'position=< *(-?\d+), *(-?\d+)> velocity=< *(-?\d+), *(-?\d+)>';
+    @input = map { [ map { int } m/${regex}/ ] } <>;
+}
+
+# Return a list of x or y values at the given time t
+sub x_t ($t) { [ map { $$_[0] + $$_[2] * $t } @input ]; }
+sub y_t ($t) { [ map { $$_[1] + $$_[3] * $t } @input ]; }
+# Return a list of points at the given time t
+sub p_t ($t) { [ map { [ $$_[0] + $$_[2] * $t, $$_[1] + $$_[3] * $t ] } @input ]; };
+
+# Return the area of the smallest rectangle that contains all points at time t
+sub area_t ($t) {
+    state %memo;
+    return $memo{$t} if exists $memo{$t};
+
+    my $x_ref = &x_t($t);
+    my $min_x = min(@$x_ref);
+    my $max_x = max(@$x_ref);
+
+    my $y_ref = &y_t($t);
+    my $min_y = min(@$y_ref);
+    my $max_y = max(@$y_ref);
+
+    my $area = ($max_x - $min_x) * ($max_y - $min_y);
+    $memo{$t} = $area;
+    return $area;
+}
+
+# Find the time at which the area is minimized
+my @indices = (0, 1, 2);
+while ($indices[0] != $indices[1] and $indices[1] != $indices[2]) {
+    # Still descending; minimum is further to the right
+    if (&area_t($indices[0]) > &area_t($indices[1]) and
+        &area_t($indices[1]) > &area_t($indices[2])) {
+        # Invent a few point twice as far from the origin as the last one
+        @indices = (@indices[1, 2], 2 * $indices[2]);
+    # Middle index is low, therefore we've enclosed the minimum
+    } elsif (&area_t($indices[0]) > &area_t($indices[1]) and
+             &area_t($indices[1]) < &area_t($indices[2])) {
+        # Invent new points between the existing ones
+        push @indices, int(($indices[0] + $indices[1]) / 2);
+        push @indices, int(($indices[1] + $indices[2]) / 2);
+        # Find the 3 lowest points
+        @indices = (sort { $a <=> $b }
+                    (sort { &area_t($a) <=> &area_t($b) } @indices)[0..2]);
+    }
+}
+my $time = $indices[1];
+
+say $time;
