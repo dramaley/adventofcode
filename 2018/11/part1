@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+our ($serial) = map { int; } <>;        # Input is just a single number!
+our $grid_size = 300;
+
+# Calculate the power of each fuel cell
+my @grid;
+foreach my $x (1..$grid_size) {
+    foreach my $y (1..$grid_size) {
+        my $rackID = $x + 10;
+        my $power = ($rackID * $y + $serial) * $rackID;
+        $power = int($power / 100) % 10;    # Keep the hundreds digit
+        $power -= 5;
+        $grid[$x][$y] = $power;
+    }
+}
+
+# Calculate power of all possible 3x3 grids
+my %power;
+foreach my $x (1..$grid_size-2) {
+    foreach my $y (1..$grid_size-2) {
+        my $total = sum(map { @{$_}[$y..$y+2] } @grid[$x..$x+2]);
+        $power{$total} = "${x},${y}";
+    }
+}
+
+# Find the largest
+say $power{ (sort { $a <=> $b } keys %power)[-1] };

@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+our ($serial) = map { int; } <>;        # Input is just a single number!
+our $grid_size = 300;
+
+# Calculate the power of each fuel cell
+my @grid;
+foreach my $x (1..$grid_size) {
+    foreach my $y (1..$grid_size) {
+        my $rackID = $x + 10;
+        my $power = ($rackID * $y + $serial) * $rackID;
+        $power = int($power / 100) % 10;    # Keep the hundreds digit
+        $power -= 5;
+        $grid[$x][$y] = $power;
+    }
+}
+
+# Calculate power of all possible squares
+my %power;
+foreach my $size (1..$grid_size) {
+    my $size0 = $size - 1;      # Calculations are easier if size is 0-based
+    foreach my $x (1..$grid_size-$size0) {
+        foreach my $y (1..$grid_size-$size0) {
+            # This should work but is very slow:
+            #my $total = sum(map { @{$_}[$y..$y+$size0] } @grid[$x..$x+$size0]);
+
+            # This is the same, but uses the partial sum from the smaller square
+            my $total = sum(
+                ($power{"${x},${y},${size0}"} // 0),            # Partial sum
+                (map { $$_[$y+$size0] } @grid[$x..$x+$size0-1]),# Right column
+                @{$grid[$x+$size0]}[$y..$y+$size0]              # Bottom row
+                );
+            $power{"${x},${y},${size}"} = $total;
+        }
+    }
+}
+
+# Find the largest
+my $key = (map { $$_[0] }
+           sort { $$a[1] <=> $$b[1] or $$a[0] cmp $$b[0] }
+           map { [ $_, $power{$_}] } keys %power)[-1];
+say $key;
