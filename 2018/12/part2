@@ -1,0 +1,50 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+our $generations = 50000000000;
+
+our ($state) = <> =~ /([#.]+)/;         # Read initial state
+$state =~ tr/#./xo/;                    # x = pot, o = empty
+our $rules = join('|',
+                  map { m/^(..)(.)(..)/;# Pattern with reacharound assertions
+                        "(?<=$1)$2(?=$3)" }
+                  sort                  # More efficient regex?
+                  map { tr/#./xo/r; }   # x = pot, o = empty
+                  grep { /#$/ } <>);    # Only worry about pots, not empties
+
+my $pot_num = 0;                        # Number of the first pot in $state
+foreach my $i (1..$generations) {
+    $state =~ s/^o*/ooo/;               # Add empty pots at the beginning
+    $pot_num -= 3 - length $&;          # Account for the change in empties
+    $state =~ s/o*$/ooo/;               # Empty pots at the end
+
+    # We're going to make a big assumption here that the overall state is
+    # similar to the game of Life, and can settle into a repetitious cycle.
+    # Detect that situation and then project into the future.
+    #
+    # Fortunately, the repeating cycle turns out to have a length of 1.
+    # For example, it repeats like this: 1, 2, 8, 3, 9, 5, 5, 5, 5, 5...
+    # Rather than like this (length 2):  1, 2, 8, 3, 9, 5, 9, 5, 9, 5...
+    # Once a cycle is detected, that makes finding the answer more trivial than
+    # it might have been.
+
+    state %memo;                        # Memoization
+    if (not exists $memo{$state}) {
+        $memo{$state} = [ $i, $pot_num ];
+    } else {
+        my ($prev_i, $prev_pot_num) = @{$memo{$state}};
+        die unless $i - $prev_i == 1;   # Assert cycle length is 1
+        # Don't have to do anything fancy here since cycle length is known,
+        # just update the $pot_num for the end state and bail out of the loop.
+        $pot_num += ($pot_num - $prev_pot_num) * ($generations - $i + 1);
+        last;
+    }
+
+    $state =~ s/${rules}/\u$&/gi;       # Uppercase matching pots
+    $state =~ s/[ox]/o/g;               # Remaining lowercase pots are empty
+    $state =~ s/[OX]/x/g;               # Uppercase pots are filled
+}
+
+say sum map { $pot_num++ * ($_ eq 'x') } split //, $state;

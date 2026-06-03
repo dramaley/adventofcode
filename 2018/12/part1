@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+our ($state) = <> =~ /([#.]+)/;         # Read initial state
+$state =~ tr/#./xo/;                    # x = pot, o = empty
+our $rules = join('|',
+                  map { m/^(..)(.)(..)/;# Pattern with reacharound assertions
+                        "(?<=$1)$2(?=$3)" }
+                  sort                  # More efficient regex?
+                  map { tr/#./xo/r; }   # x = pot, o = empty
+                  grep { /#$/ } <>);    # Only worry about pots, not empties
+
+my $pot_num = 0;                        # Number of the first pot in $state
+foreach (1..20) {
+    $state =~ s/^o*/ooo/;               # Add empty pots at the beginning
+    $pot_num -= 3 - length $&;          # Account for the change in empties
+    $state =~ s/o*$/ooo/;               # Empty pots at the end
+    $state =~ s/${rules}/\u$&/gi;       # Uppercase matching pots
+    $state =~ s/[ox]/o/g;               # Remaining lowercase pots are empty
+    $state =~ s/[OX]/x/g;               # Uppercase pots are filled
+}
+
+say sum map { $pot_num++ * ($_ eq 'x') } split //, $state;
