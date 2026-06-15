@@ -1,0 +1,130 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# %carts   Grid position of each cart is encoded in the keys. Values are hash
+#          references; the hashes contain cart attributes such as what direction
+#          it is headed (encoded as a number) and how many times it has
+#          encountered an intersection.
+# %grid    Keys are the grid position, values are what type of track is at that
+#          position. Valid tracks are: "-" and "|" (straight sections), "\" and
+#          "/" (curves), and "+" (intersections).
+our (%carts, %grid);
+
+# Map the textual cart direction to a number
+our %direction_map = (
+    '^' => 0,
+    '>' => 1,
+    'v' => 2,
+    '<' => 3
+);
+
+# Associate direction (array index) with how to update the grid position
+our @movement = (
+    # row, column
+    [-1,  0], # Up
+    [ 0,  1], # Right
+    [ 1,  0], #Down
+    [ 0, -1], # Left
+);
+
+# Map a cart's direction (first character of the key) plus grid value (second
+# character of the key) to the cart's new direction.
+# Note that despite the single-quote strings, backslash has to be escaped. From
+# the "Quote-Like Operators" section of perlop(1): "A backslash represents a
+# backslash unless followed by the delimiter or another backslash, in which case
+# the delimiter or backslash is interpolated."
+our %dir_map = (
+    # Up
+    '0|'  => '0',
+    '0\\' => '3',
+    '0/'  => '1',
+    # Right
+    '1-'  => '1',
+    '1\\' => '2',
+    '1/'  => '0',
+    # Down
+    '2|'  => '2',
+    '2\\' => '1',
+    '2/'  => '3',
+    # Left
+    '3-'  => '3',
+    '3\\' => '0',
+    '3/'  => '2',
+);
+
+# ------------------------------------------------------------------------------
+#  Convert a key back to the associated row + column.
+# ------------------------------------------------------------------------------
+sub key2rc ($key) {
+    map { int } split /,/, $key;
+}
+
+# ------------------------------------------------------------------------------
+#  Convert a row + column to a key. Keys made this way sort in a useful way.
+# ------------------------------------------------------------------------------
+sub rc2key ($row, $col) {
+    # Increase the "3" to support larger grids.
+    # (Or, for more robust code, detect a suitable value from the input.)
+    join ',', map { sprintf '%3d', $_ } ($row, $col);
+}
+
+# Populate %carts and %grid from the input
+# ----------------------------------------
+while (<>) {
+    my $row_num = $. - 1;
+    s/\s*$//;   # Trim trailing whitespace
+    my @row = split //;
+    for (my $col_num = 0; $col_num < @row; $col_num++) {
+        next if $row[$col_num] eq ' ';
+        if ($row[$col_num] =~ m/[v^<>]/) {
+            $carts{&rc2key($row_num, $col_num)} = {
+                'direction' => $direction_map{ $row[$col_num] },
+                'num_turns' => 0
+            };
+            # Note: In the given input, carts only start on straight sections
+            # and never on curves or intersections. So no need to detect those.
+            $row[$col_num] =~ tr'v^<>'||--';
+        }
+        die if $row[$col_num] !~ m/[-|+\/\\]/;  # Bad input
+        $grid{&rc2key($row_num, $col_num)} = $row[$col_num];
+    }
+}
+
+# Main loop
+# ---------
+while (%carts) {
+    # Process 1 tick
+    foreach my $old_key (sort keys %carts) {
+        next if not exists $carts{$old_key};    # Handle prior removal
+        # Get the old data for this key
+        my ($direction, $num_turns) = @{$carts{$old_key}}{'direction', 'num_turns'};
+        my ($old_row, $old_col) = &key2rc($old_key);
+        # Calculate new position
+        my $new_row = $old_row + $movement[$direction][0];
+        my $new_col = $old_col + $movement[$direction][1];
+        my $new_key = &rc2key($new_row, $new_col);
+        # Collision detection
+        if (exists $carts{$new_key}) {
+            say join(',', $new_col, $new_row);
+            exit;
+        }
+        # Update the new direction
+        if ($grid{$new_key} eq '+') {
+            # Create a sequence -1, 0, 1, -1, 0, 1, etc.
+            # Note that -1 means left turn, +1 means right turn.
+            $direction += $num_turns++ % 3 - 1;
+            # Handle wrap-around
+            $direction %= 4;
+        } else {
+            $direction = $dir_map{$direction . $grid{$new_key}} //
+                die 'Invalid movement attempted';
+        }
+        # Move the cart
+        $carts{$new_key} = {
+            'direction' => $direction,
+            'num_turns' => $num_turns
+        };
+        delete $carts{$old_key};
+    }
+}
