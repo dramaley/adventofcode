@@ -1,0 +1,152 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+our (@grid, %combatants);
+
+# ------------------------------------------------------------------------------
+#  Given a coordinate, return adjacent coordinates in a useful order
+# ------------------------------------------------------------------------------
+sub adjacents ($row, $col) {
+    my @order = ([-1,  0],      # Up
+                 [ 0, -1],      # Left
+                 [ 0,  1],      # Right
+                 [ 1,  0]);     # Down
+    map { [ $row + $$_[0], $col + $$_[1] ] } @order;
+}
+
+# ------------------------------------------------------------------------------
+#  Given a unit and its location, return an adjacent enemy location (if any)
+# ------------------------------------------------------------------------------
+sub get_enemy ($unit, $row, $col) {
+    foreach (&adjacents($row, $col)) {
+        my $adj = &rc2key(@$_);
+        return $_ if (exists $combatants{$adj} and
+                      $unit ne $combatants{$adj}{'unit'});
+    }
+}
+
+# ------------------------------------------------------------------------------
+#  Given a unit and its location, return the location of the adjacent enemy
+#  with the highest attack priority (if any)
+# ------------------------------------------------------------------------------
+sub get_enemy_attack ($unit, $row, $col) {
+    # Get adjacent locations that contain an enemy
+    my @enemies = (grep { my $key = &rc2key(@$_);
+                          (exists $combatants{$key} and
+                           $unit ne $combatants{$key}{'unit'}); }
+                   &adjacents($row, $col));
+    # No enemies found
+    return() if not @enemies;
+    # Use a Schwartzian Transform to sort indices by attack priority
+    my @indices = (# Put the Schwartz away
+                   map { $_->[0] }
+                   # Sort by smaller health (aka, weakest) then by index
+                   sort { $a->[1] <=> $b->[1] or $a->[0] <=> $b->[0] }
+                   # Pull out the Schwartz
+                   map { my $rc = $enemies[$_];
+                         my $key = &rc2key(@$rc);
+                         [ $_, $combatants{$key}{'health'} ] }
+                   # Indices
+                   0..$#enemies);
+    return $enemies[$indices[0]];
+}
+
+# ------------------------------------------------------------------------------
+#  Convert a key back to the associated row + column.
+# ------------------------------------------------------------------------------
+sub key2rc ($key) {
+    map { int } split /,/, $key;
+}
+
+# ------------------------------------------------------------------------------
+#  Convert a row + column to a key. Keys made this way sort in a useful way.
+# ------------------------------------------------------------------------------
+sub rc2key ($row, $col) {
+    # Increase the "3" to support larger grids.
+    # (Or, for more robust code, detect a suitable value from the input.)
+    join ',', map { sprintf '%3d', $_ } ($row, $col);
+}
+
+
+# Populate @grid and %combatants from the input
+# ---------------------------------------------
+while (<>) {
+    my $row_num = $. - 1;
+    chomp;
+    # @grid is a 2D array with true for cavern positions and false for walls
+    push @grid, [ map { int($_ ne '#') } split // ];
+    # %combatants is a hash with (row, col) keys, and unit stats values
+    while (m/([EG])/g) {
+        $combatants{&rc2key($row_num, pos()-1)} = { 'unit'   => $1,
+                                                    'attack' => 3,
+                                                    'health' => 200 };
+    }
+}
+
+# Main loop
+# ---------
+my $round = 0;
+ROUND:
+    while(1) {
+        foreach my $this (sort keys %combatants) {
+            # Combatant may have been killed in this round already
+            next if not exists $combatants{$this};
+            # Check for doneness -- no enemies remaining
+            last ROUND if not (grep { $combatants{$this}{'unit'} ne $_ }
+                               map { ${$_}{'unit'} }
+                               values %combatants);
+
+            # Figure out movement
+            # ...................
+
+            # Set up a queue. Each entry contains current position (row, column)
+            # plus the position of the first movement on this path.
+            my @queue = ([&key2rc($this), undef, undef]);
+
+            my %seen = ($this => 1);                    # Track where we've been
+            # Work the queue; breadth-first search
+            while (@queue) {
+                my ($row, $col, $row_0, $col_0) = @{ shift @queue };
+
+                # Check if an adjacent position contains an enemy
+                my $enemy_rc = &get_enemy($combatants{$this}{'unit'}, $row, $col);
+                if ($enemy_rc) {
+                    # Move towards the enemy
+                    if (defined $row_0 and defined $col_0) {
+                        my $new_this = &rc2key($row_0, $col_0);
+                        $combatants{$new_this} = $combatants{$this};
+                        delete $combatants{$this};
+                        $this = $new_this;
+                    }
+                    # Done with movement!
+                    last;
+                }
+
+                foreach (&adjacents($row, $col)) {
+                    my ($rowN, $colN) = @$_;            # N = new/next location
+                    next if not $grid[$rowN][$colN];    # Avoid walls
+                    my $keyN = &rc2key($rowN, $colN);
+                    next if $seen{$keyN}++;             # Been there before
+                    next if exists $combatants{$keyN};  # Space is occupied
+                    push @queue, [$rowN, $colN, $row_0 // $rowN, $col_0 // $colN];
+                }
+            }
+
+            # Attack the enemy
+            # ................
+
+            my $enemy_rc = &get_enemy_attack($combatants{$this}{'unit'}, &key2rc($this));
+            if ($enemy_rc) {
+                my $enemy_key = &rc2key(@$enemy_rc);
+                $combatants{$enemy_key}{'health'} -= $combatants{$this}{'attack'};
+                if ($combatants{$enemy_key}{'health'} <= 0) {
+                    delete $combatants{$enemy_key};     # It died
+                }
+            }
+        }
+        $round++;
+    }
+# Calculate outcome
+say $round * sum(map { $_->{'health'} } values %combatants);
