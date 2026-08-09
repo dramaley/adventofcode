@@ -1,0 +1,99 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @registers;
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+# Addition
+sub addr ($a, $b, $c) { $registers[$c] = $registers[$a] + $registers[$b]; }
+sub addi ($a, $b, $c) { $registers[$c] = $registers[$a] + $b; }
+# Multiplication
+sub mulr ($a, $b, $c) { $registers[$c] = $registers[$a] * $registers[$b]; }
+sub muli ($a, $b, $c) { $registers[$c] = $registers[$a] * $b; }
+# Bitwise AND
+sub banr ($a, $b, $c) { $registers[$c] = $registers[$a] & $registers[$b]; }
+sub bani ($a, $b, $c) { $registers[$c] = $registers[$a] & $b; }
+# Bitwise OR
+sub borr ($a, $b, $c) { $registers[$c] = $registers[$a] | $registers[$b]; }
+sub bori ($a, $b, $c) { $registers[$c] = $registers[$a] | $b; }
+# Assignment
+sub setr ($a, $b, $c) { $registers[$c] = $registers[$a]; }
+sub seti ($a, $b, $c) { $registers[$c] = $a; }
+# Greater-than testing
+sub gtir ($a, $b, $c) { $registers[$c] = int($a > $registers[$b]); }
+sub gtri ($a, $b, $c) { $registers[$c] = int($registers[$a] > $b); }
+sub gtrr ($a, $b, $c) { $registers[$c] = int($registers[$a] > $registers[$b]); }
+# Equality testing
+sub eqir ($a, $b, $c) { $registers[$c] = int($a == $registers[$b]); }
+sub eqri ($a, $b, $c) { $registers[$c] = int($registers[$a] == $b); }
+sub eqrr ($a, $b, $c) { $registers[$c] = int($registers[$a] == $registers[$b]); }
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Note that the input is highly constrained, with the first number in each line
+# always an integer 0-15, and the remaining three numbers always an integer 0-3.
+
+# Read samples
+# ------------
+
+my (%num2name);                 # Associate opcode numbers to potential names
+{   local $/ = "\n\n";          # Cheap parser
+    while (<>) {
+        last if m/^\n\n$/ms;    # Hit the end of Part 1 input
+        if (m/^Before: \[([\d, ]+)\]\n([\d ]+)\nAfter:  \[([\d, ]+)\]/gms) {
+            my @before = split /, /, $1;
+            my @instr  = split / /,  $2;
+            my @after  = split /, /, $3;
+
+            my $op_num = shift @instr;          # Opcode number
+            my $check = join("\t", @after);     # Result to check for
+
+            # Loop over opcode names
+            foreach my $op_name ('addi', 'addr', 'bani', 'banr', 'bori', 'borr',
+                                 'eqir', 'eqri', 'eqrr', 'gtir', 'gtri', 'gtrr',
+                                 'muli', 'mulr', 'seti', 'setr') {
+                @registers = @before;                       # Set registers
+                no strict 'refs';
+                &$op_name(@instr);                          # Try instruction
+                $num2name{$op_num}{$op_name}++              # Save association
+                    if $check eq join("\t", @registers);    # if registers match
+            }
+        } else {
+            die 'Unexpected input';
+        }
+    }
+}
+
+# Determine opcode numbers
+# ------------------------
+
+my @opcodes;
+while (%num2name) {
+    # Loop over opcode numbers that have only 1 possible function
+    foreach my $num (grep { scalar %{$num2name{$_}} == 1 } keys %num2name) {
+        my $op_name = (keys %{$num2name{$num}})[0];
+        # Save this instruction number
+        $opcodes[$num] = $op_name;
+        # And now clear it out
+        delete $num2name{$num};
+        delete $_->{$op_name} foreach values %num2name;
+    }
+}
+
+# Run the sample program
+# ----------------------
+
+@registers = (0) x 4;
+while (<>) {
+    chomp;
+    my ($opcode, @inputs) = split / /;
+    no strict 'refs';
+    &{$opcodes[$opcode]}(@inputs);
+}
+say $registers[0];

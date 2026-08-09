@@ -1,0 +1,71 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @registers;
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+# Addition
+sub addr ($a, $b, $c) { $registers[$c] = $registers[$a] + $registers[$b]; }
+sub addi ($a, $b, $c) { $registers[$c] = $registers[$a] + $b; }
+# Multiplication
+sub mulr ($a, $b, $c) { $registers[$c] = $registers[$a] * $registers[$b]; }
+sub muli ($a, $b, $c) { $registers[$c] = $registers[$a] * $b; }
+# Bitwise AND
+sub banr ($a, $b, $c) { $registers[$c] = $registers[$a] & $registers[$b]; }
+sub bani ($a, $b, $c) { $registers[$c] = $registers[$a] & $b; }
+# Bitwise OR
+sub borr ($a, $b, $c) { $registers[$c] = $registers[$a] | $registers[$b]; }
+sub bori ($a, $b, $c) { $registers[$c] = $registers[$a] | $b; }
+# Assignment
+sub setr ($a, $b, $c) { $registers[$c] = $registers[$a]; }
+sub seti ($a, $b, $c) { $registers[$c] = $a; }
+# Greater-than testing
+sub gtir ($a, $b, $c) { $registers[$c] = int($a > $registers[$b]); }
+sub gtri ($a, $b, $c) { $registers[$c] = int($registers[$a] > $b); }
+sub gtrr ($a, $b, $c) { $registers[$c] = int($registers[$a] > $registers[$b]); }
+# Equality testing
+sub eqir ($a, $b, $c) { $registers[$c] = int($a == $registers[$b]); }
+sub eqri ($a, $b, $c) { $registers[$c] = int($registers[$a] == $b); }
+sub eqrr ($a, $b, $c) { $registers[$c] = int($registers[$a] == $registers[$b]); }
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Note that the input is highly constrained, with the first number in each line
+# always an integer 0-15, and the remaining three numbers always an integer 0-3.
+
+$/ = "\n\n";                    # Cheap parser
+my $sample_count = 0;
+while (<>) {
+    last if m/^\n\n$/ms;        # Hit the end of Part 1 input
+    if (m/^Before: \[([\d, ]+)\]\n([\d ]+)\nAfter:  \[([\d, ]+)\]/gms) {
+        my @before = split /, /, $1;
+        my @instr  = split / /,  $2;
+        my @after  = split /, /, $3;
+
+        my $instr = shift @instr;
+        my $after = join("\t", @after);
+
+        my $possibilities = 0;
+        foreach my $f ('addi', 'addr', 'bani', 'banr', 'bori', 'borr',
+                       'eqir', 'eqri', 'eqrr', 'gtir', 'gtri', 'gtrr',
+                       'muli', 'mulr', 'seti', 'setr') {
+            no strict 'refs';
+            @registers = @before;
+            &$f(@instr);        # FAFO
+            # Compare arrays by converting to strings
+            if ($after eq join("\t", @registers)) {
+                $possibilities++;
+            }
+        }
+        $sample_count++ if $possibilities >= 3;
+    } else {
+        die 'Unexpected input';
+    }
+}
+say $sample_count;
