@@ -33,7 +33,7 @@ foreach (@input) {
 }
 
 # Create the grid, as a series of strings.
-my @grid = map { '.' x ($max_x+2) . "\n" } 1..($max_y+1);   # Fill it with sand
+my @grid = map { '.' x ($max_x+2) . "\n" } 0..$max_y;       # Fill it with sand
 substr $grid[$water_y], $water_x, 1, '+';                   # Add water fountain
 foreach my $vein (@input) {                                 # Add clay veins
     my ($x0, $x1, $y0, $y1) = @$vein;
@@ -45,16 +45,13 @@ foreach my $vein (@input) {                                 # Add clay veins
 # Collapse the grid into a single string
 my $grid = join('', @grid);
 
-# Simulate the flowing spring with capturing regexes
-# NOTE: The fourth regex ("still water") contains a bug that is only apparent
-# with certain input, and only affects the results of Part 2. See extensive
-# comments in Part 2 for more explanation.
+# Simulate the flowing spring with lookaround assertion regexes
 my $len = index $grid, "\n";                                    # Line length
-1 while ($grid =~ s/[\+\|].{$len}\K\./|/s ||                    # Pour down
-         $grid =~ s/\.\|(.{$len})([\#~])/\|\|$1$2/s ||          # Pour left
-         $grid =~ s/\|\.(.{@{[$len-1]}})([\#~])/\|\|$1$2/s ||   # Pour right
-         $grid =~ s/([\#\~])\|([|]*)\#/$1~$2\#/s);              # Still water
-# Tally how much water 
-my $water =()= $grid =~ m/[~|]/g;
+1 while ($grid =~ s/[+|].{$len}\K\./|/gos ||                    # Flow down
+         $grid =~ s/\.(?=\|.{$len}[#~])/|/gos ||                # Flow left
+         $grid =~ s/\|\K\.(?=.{@{[$len-1]}}[#~])/|/gos ||       # Flow right
+         $grid =~ s/[#~]\K\|(?=\|*#)(?=.{$len}[#~])/~/gos);     # Still water
+# Tally how much still water 
+my $still =()= $grid =~ m/~/g;
 #print $grid;
-say $water;
+say $still;

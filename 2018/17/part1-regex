@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# Read input
+my ($min_x, $min_y) = (~0) x 2;
+my ($max_x, $max_y) = (0) x 2;
+my @input;
+while (<>) {
+    # Parse 2 ranges, $x0..$x1 and $y0..$y1
+    m/x=(?<x>[\d.]+), y=(?<y>[\d.]+)|y=(?<y>[\d.]+), x=(?<x>[\d.]+)/;
+    my ($x0, $x1) = split /\.\./, $+{'x'};  # Split ranges
+    my ($y0, $y1) = split /\.\./, $+{'y'};
+    $x1 //= $x0;                            # Ensure upper bounds are defined
+    $y1 //= $y0;
+
+    # Adjust known minimums and maximums
+    $min_x = $x0 if $x0 < $min_x; $max_x = $x1 if $x1 > $max_x;
+    $min_y = $y0 if $y0 < $min_y; $max_y = $y1 if $y1 > $max_y;
+
+    # Save delimiters
+    push @input, [$x0, $x1, $y0, $y1];
+}
+
+# Shift coordinates so the lowest x and y are each 1
+my ($delta_x, $delta_y) = ($min_x - 1, $min_y - 1);
+my ($water_x, $water_y) = (500 - $delta_x, 0);
+$min_x -= $delta_x; $max_x -= $delta_x;
+$min_y -= $delta_y; $max_y -= $delta_y;
+foreach (@input) {
+    $$_[0] -= $delta_x; $$_[1] -= $delta_x;
+    $$_[2] -= $delta_y; $$_[3] -= $delta_y;
+}
+
+# Create the grid, as a series of strings.
+my @grid = map { '.' x ($max_x+2) . "\n" } 0..$max_y;       # Fill it with sand
+substr $grid[$water_y], $water_x, 1, '+';                   # Add water fountain
+foreach my $vein (@input) {                                 # Add clay veins
+    my ($x0, $x1, $y0, $y1) = @$vein;
+    foreach my $y ($y0..$y1) {
+        my $len = $x1 - $x0 + 1;
+        substr $grid[$y], $x0, $len, ('#') x $len;
+    }
+}
+# Collapse the grid into a single string
+my $grid = join('', @grid);
+
+# Simulate the flowing spring with capturing regexes
+# NOTE: The fourth regex ("still water") contains a bug that is only apparent
+# with certain input, and only affects the results of Part 2. See extensive
+# comments in Part 2 for more explanation.
+my $len = index $grid, "\n";                                    # Line length
+1 while ($grid =~ s/[\+\|].{$len}\K\./|/s ||                    # Pour down
+         $grid =~ s/\.\|(.{$len})([\#~])/\|\|$1$2/s ||          # Pour left
+         $grid =~ s/\|\.(.{@{[$len-1]}})([\#~])/\|\|$1$2/s ||   # Pour right
+         $grid =~ s/([\#\~])\|([|]*)\#/$1~$2\#/s);              # Still water
+# Tally how much water 
+my $water =()= $grid =~ m/[~|]/g;
+#print $grid;
+say $water;

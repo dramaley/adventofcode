@@ -1,78 +1,19 @@
-#!/usr/bin/perl
-
-use v5.36.0;    # Implies strict + warnings
-
-# Read input
-my ($min_x, $min_y) = (~0) x 2;
-my ($max_x, $max_y) = (0) x 2;
-my @input;
-while (<>) {
-    # Parse 2 ranges, $x0..$x1 and $y0..$y1
-    m/x=(?<x>[\d.]+), y=(?<y>[\d.]+)|y=(?<y>[\d.]+), x=(?<x>[\d.]+)/;
-    my ($x0, $x1) = split /\.\./, $+{'x'};  # Split ranges
-    my ($y0, $y1) = split /\.\./, $+{'y'};
-    $x1 //= $x0;                            # Ensure upper bounds are defined
-    $y1 //= $y0;
-
-    # Adjust known minimums and maximums
-    $min_x = $x0 if $x0 < $min_x; $max_x = $x1 if $x1 > $max_x;
-    $min_y = $y0 if $y0 < $min_y; $max_y = $y1 if $y1 > $max_y;
-
-    # Save delimiters
-    push @input, [$x0, $x1, $y0, $y1];
-}
-
-# Shift coordinates so the lowest x and y are each 1
-my ($delta_x, $delta_y) = ($min_x - 1, $min_y - 1);
-my ($water_x, $water_y) = (500 - $delta_x, 0);
-$min_x -= $delta_x; $max_x -= $delta_x;
-$min_y -= $delta_y; $max_y -= $delta_y;
-foreach (@input) {
-    $$_[0] -= $delta_x; $$_[1] -= $delta_x;
-    $$_[2] -= $delta_y; $$_[3] -= $delta_y;
-}
-
-# Create the grid, as a series of strings.
-my @grid = map { '.' x ($max_x+2) . "\n" } 1..($max_y+1);   # Fill it with sand
-substr $grid[$water_y], $water_x, 1, '+';                   # Add water fountain
-foreach my $vein (@input) {                                 # Add clay veins
-    my ($x0, $x1, $y0, $y1) = @$vein;
-    foreach my $y ($y0..$y1) {
-        my $len = $x1 - $x0 + 1;
-        substr $grid[$y], $x0, $len, ('#') x $len;
-    }
-}
-# Collapse the grid into a single string
-my $grid = join('', @grid);
-
-# Simulate the flowing spring with lookaround assertion regexes
-my $len = index $grid, "\n";                                    # Line length
-1 while ($grid =~ s/[+|].{$len}\K\./|/gos ||                    # Flow down
-         $grid =~ s/\.(?=\|.{$len}[#~])/|/gos ||                # Flow left
-         $grid =~ s/\|\K\.(?=.{@{[$len-1]}}[#~])/|/gos ||       # Flow right
-         $grid =~ s/[#~]\K\|(?=\|*#)(?=.{$len}[#~])/~/gos);     # Still water
-# Tally how much still water 
-my $still =()= $grid =~ m/~/g;
-#print $grid;
-say $still;
-
-__DATA__
-
-Some rambling thoughts on regex:
+My first solutions were the regex ones. Some rambling thoughts on those:
 
 The crux of the program is to simulate water flow. Regex is perhaps not the
 most efficient tool for this exact situation. But, it can accomplish the goal
 in a way that is not terribly difficult to understand--for one who knows a bit
-of regex, anyway, an admittedly obtuse topic for the uninitiated.
+of regex, anyway. (An admittedly obtuse topic for the uninitiated.)
 
 There are two versions of the regexes used for this puzzle. The regexes used in
 Part 1 are a capturing version lifted from a Reddit comment:
     https://www.reddit.com/r/adventofcode/comments/a6wpup/comment/ec059u5/
 
-However, the found version had a bug in the 4th regex that caused it to fail
-with my input. The problem could be seen if water spilled from one or more bins
-above and the spaces between bins was completely filled by flowing water. As in,
-this scenario:
+However, the found version had a bug in the 4th regex that caused it to fail on
+Part 2 with my input. The problem could be seen if water spilled from one or
+more bins above and the spaces between bins was completely filled by flowing
+water. As in, this scenario:
+
     ......|........|.......
     ....#|||||||...|.......
     ....#~~~~~#|||||||#....
@@ -85,7 +26,7 @@ The original regex would make a mistake between the clay bins in this instance,
 replacing flowing water with still water when there's nothing solid to support
 the still water. I corrected that oversight with a lookahead assertion. I also
 removed backslash escapes from a few places where they were unnecessary, and
-consolidated captures where possible. The result looks like this:
+consolidated captures where possible. The corrected version looks like this:
 
 1 while ($grid =~ s/[+|].{$len}\K\./|/gos ||                    # Flow down
          $grid =~ s/\.(\|.{$len}[\#~])/|$1/gos ||               # Flow left
@@ -94,11 +35,11 @@ consolidated captures where possible. The result looks like this:
 
 That code works just fine, but i wasn't happy with it since it is not my
 original work. So, i wrote a different version that uses lookaround assertions
-rather than capturing. That version is presented in the code above for Part 2.
-Intuition tells me the lookaround version should be faster since the regex
-engine doesn't have to do capturing work. Alas, intuition is often wrong and in
-truth the lookaround version is slower by a factor of 2⅓. Still, it is what i
-went with for Part 2 because it is my own invention.
+rather than capturing. The lookaround version is presented in the solution for
+Part 2. Intuition suggests the lookaround version should be faster since the
+regex engine doesn't have to do capturing work. Alas, intuition is often wrong
+and in truth the lookaround version is slower by a factor of 2⅓. Still, it is
+what i went with for Part 2 because it is my own invention.
 
 Since the workings of it all looks like a bunch of line noise, a heavily
 commented version has been provided below.
@@ -148,3 +89,10 @@ commented version has been provided below.
                        [#~]     # What water may flow over: clay or still water
                     )           # Close lookahead assertion
                     /~/gosx);   # Replace flowing water with still water, '~'
+
+After putting in all this work to get a regex solution working, i am not yet
+satisfied. For these regex solutions are slow. Best i've seen (on my decade-old
+workstation) is half an hour with the full problem input. AoC challenges are not
+supposed to require that much computation. So i'm going to attempt another
+solution, that traverses the problem space as a grid, and uses a queue to direct
+the code's attention towards grid points that may require adjustment.
