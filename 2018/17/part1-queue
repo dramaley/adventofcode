@@ -1,0 +1,128 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use experimental 'smartmatch';
+
+our (@grid, @queue);
+
+# Object types
+our $clay = '#';                # Clay, just as it says on the tin
+our $flow = '|';                # Flowing water
+our $rest = '~';                # Water at rest
+our $sand = '.';                # Sand, just as it says on the tin
+our $spring = '+';              # Water spring
+our @flowing = ($flow, $spring);# Flowing water and spring it originates from
+our @stable = ($clay, $rest);   # These are stable enough to support still water
+our @water = ($flow, $rest);    # Regular water, of both types
+
+# ------------------------------------------------------------------------------
+#  Define @grid based on the input. Done as a function to keep all the local
+#  variables contained. Also initialize the @queue with the spring location.
+# ------------------------------------------------------------------------------
+sub initialize () {
+    my ($min_row, $min_col) = (~0) x 2;
+    my ($max_row, $max_col) = (0) x 2;
+    my @input;
+
+    # Read input
+    while (<>) {
+        # Parse 2 ranges, $row0..$row1 and $col0..$col1
+        m/x=(?<x>[\d.]+), y=(?<y>[\d.]+)|y=(?<y>[\d.]+), x=(?<x>[\d.]+)/;
+        my ($row0, $row1) = split /\.\./, $+{'y'};      # Split the ranges
+        my ($col0, $col1) = split /\.\./, $+{'x'};
+        $row1 //= $row0;                                # Ensure upper bounds
+        $col1 //= $col0;                                # are defined
+
+        # Adjust known minimums and maximums
+        $min_row = $row0 if $row0 < $min_row;
+        $max_row = $row1 if $row1 > $max_row;
+        $min_col = $col0 if $col0 < $min_col;
+        $max_col = $col1 if $col1 > $max_col;
+
+        # Save delimiters
+        push @input, [$row0, $row1, $col0, $col1];
+    }
+
+    # Shift coordinates so the lowest x and y are each 1
+    my ($delta_row, $delta_col) = ($min_row - 1, $min_col - 1);
+    my ($spring_row, $spring_col) = (0, 500 - $delta_col);
+    $min_row -= $delta_row; $max_row -= $delta_row;
+    $min_col -= $delta_col; $max_col -= $delta_col;
+    foreach (@input) {
+        $$_[0] -= $delta_row; $$_[1] -= $delta_row;
+        $$_[2] -= $delta_col; $$_[3] -= $delta_col;
+    }
+
+    # Create the grid, as an array
+    @grid = map { [($sand) x ($max_col+2)] } 0..$max_row;   # Fill it with sand
+    $grid[$spring_row][$spring_col] = $spring;              # Add water spring
+    foreach my $vein (@input) {                             # Add clay veins
+        my ($row0, $row1, $col0, $col1) = @$vein;
+        foreach my $row ($row0..$row1) {
+            foreach my $col ($col0..$col1) {
+                $grid[$row][$col] = $clay;
+            }
+        }
+    }
+
+    # Start the queue with the spring
+    push @queue, [$spring_row, $spring_col];
+}
+
+# ------------------------------------------------------------------------------
+#  Search a row in a given direction until either hit a wall or overflows.
+#  Returns the last column that should have water plus a boolean indicating
+#  whether it overflowed. If overflow, a new water source will be queued.
+# ------------------------------------------------------------------------------
+sub leveler ($row, $col, $direction) {
+    while (1) {
+        if ($grid[$row][$col] eq $clay) {       # Hit a wall
+            $col -= $direction;
+            return ($col, 0);
+        }
+        if ($grid[$row+1][$col] eq $sand) {     # Overflow!
+            push @queue, [$row, $col];
+            return ($col, 1);
+        }
+        if ($grid[$row][$col]   eq $flow and    # Ran into another stream
+            $grid[$row+1][$col] eq $flow) {
+            return ($col, 1);
+        }
+        $col += $direction;
+    }
+}
+
+# ------------------------------------------------------------------------------
+#  Simulate the flowing water with a queue of water sources
+# ------------------------------------------------------------------------------
+sub solveit () {
+    while (@queue) {
+        my ($row, $col) = @{ shift @queue };
+
+        next if $row > $#grid;                  # Out of bounds
+        next if $grid[$row][$col] ~~ @stable;   # Reached an end state already
+
+        $row++;
+        while ($row <= $#grid) {
+            if ($grid[$row][$col] eq $sand) {   # Keep flowing
+                $grid[$row][$col] = $flow;
+                $row++;
+            } elsif ($grid[$row][$col] eq $flow) {
+                last;
+            } elsif ($grid[$row][$col] ~~ @stable) {
+                # Fill up a level at a time by searching left and right
+                $row--;
+                my ($left, $lt_overflow) = &leveler($row, $col, -1);
+                my ($right, $rt_overflow) = &leveler($row, $col, 1);
+                my $fill = ($lt_overflow or $rt_overflow) ? $flow : $rest;
+                $grid[$row][$_] = $fill foreach $left..$right;
+            }
+        }
+    }
+}
+
+
+&initialize;
+&solveit;
+#say join('', @$_) foreach @grid;        # Display the grid
+say scalar map { grep { $_ ~~ @water } @$_ } @grid;

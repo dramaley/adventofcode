@@ -1,0 +1,4 @@
+The queue solutions were my second ones. No clever regexes, just walking the
+grid in a fairly straightforward way. The queues run *much* faster, roughly
+8000 times faster. So clearly regex was not the most efficient choice for this
+problem. But it was an interesting one!
