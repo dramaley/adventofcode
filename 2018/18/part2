@@ -1,0 +1,67 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# Use a scalar list reference for the grids instead of a direct list so that it
+# is easy to move a grid without needing to do a deep clone.
+our ($grid);
+our ($rows, $cols);
+
+# ------------------------------------------------------------------------------
+#  Given a ($row, $col) coordinate in the grid, count how many of each symbol
+#  surrounds that location and return the result as a hash reference.
+# ------------------------------------------------------------------------------
+sub count ($row, $col) {
+    my %hash = ('.' => 0, '|' => 0, '#' => 0);
+    foreach ([$row-1, $col-1], [$row-1, $col], [$row-1, $col+1],
+             [$row,   $col-1],                 [$row,   $col+1],
+             [$row+1, $col-1], [$row+1, $col], [$row+1, $col+1]) {
+        my ($r, $c) = @$_;
+        next if $r < 0 or $r > $rows;   # Out of bounds
+        next if $c < 0 or $c > $cols;
+        $hash{$$grid[$r][$c]}++;
+    }
+    return \%hash;;
+}
+
+# Read input.
+$grid = [ map { chomp; [ split // ] } <> ];
+$cols = $#{$$grid[0]};
+$rows = $#$grid;
+
+my (%seen, @history, $final_state);             # These keep track of loops
+for (my $i = 1; $i <= 1e9; $i++) {
+    my $state = join '', map { join('', @$_) . "\n"; } @$grid;
+    if (exists $seen{$state}) {                 # Loop detected!
+        # Once a loop has been discovered, the final state will be in
+        # the saved history! Calculating the index of it is easy:
+        my $loop_size = $i - $seen{$state};
+        my $remainder = (1e9 - $i) % $loop_size;
+        my $index = $seen{$state} + $remainder;
+        $final_state = $history[$index];
+        last;
+    }
+    $seen{$state} = $i;
+    push @history, $state;
+
+    my $new_grid = [];
+    foreach my $r (0..$rows) {
+        foreach my $c (0..$cols) {
+            my $href = &count($r, $c);
+            my $new = $$grid[$r][$c];
+            # Open acre becomes trees if 3 or more adjacent acres were trees
+            if    ($new eq '.' and $$href{'|'} >= 3) { $new = '|'; }
+            # Trees become a lumberyard if 3 or more adjacents were lumberyards
+            elsif ($new eq '|' and $$href{'#'} >= 3) { $new = '#'; }
+            # Lumberyards become open if there aren't any lumberyards or trees
+            elsif ($new eq '#' and ($$href{'#'} < 1 or $$href{'|'} < 1)) { $new = '.'; }
+            $$new_grid[$r][$c] = $new;
+        }
+    }
+#    print "\n${i}:\n"; say foreach map { join '', @$_; } @$new_grid;
+    $grid = $new_grid;
+}
+
+my $wooded_acres =()= $final_state =~ m/\|/g;
+my $lumberyards  =()= $final_state =~ m/\#/g;
+say $wooded_acres * $lumberyards;
