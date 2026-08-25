@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @code;
+our @registers = (0) x 6;
+our $ip = 0;    # Instruction pointers
+our $ip_reg;
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+# Addition
+sub addr ($a, $b, $c) { $registers[$c] = $registers[$a] + $registers[$b]; }
+sub addi ($a, $b, $c) { $registers[$c] = $registers[$a] + $b; }
+# Multiplication
+sub mulr ($a, $b, $c) { $registers[$c] = $registers[$a] * $registers[$b]; }
+sub muli ($a, $b, $c) { $registers[$c] = $registers[$a] * $b; }
+# Bitwise AND
+sub banr ($a, $b, $c) { $registers[$c] = $registers[$a] & $registers[$b]; }
+sub bani ($a, $b, $c) { $registers[$c] = $registers[$a] & $b; }
+# Bitwise OR
+sub borr ($a, $b, $c) { $registers[$c] = $registers[$a] | $registers[$b]; }
+sub bori ($a, $b, $c) { $registers[$c] = $registers[$a] | $b; }
+# Assignment
+sub setr ($a, $b, $c) { $registers[$c] = $registers[$a]; }
+sub seti ($a, $b, $c) { $registers[$c] = $a; }
+# Greater-than testing
+sub gtir ($a, $b, $c) { $registers[$c] = int($a > $registers[$b]); }
+sub gtri ($a, $b, $c) { $registers[$c] = int($registers[$a] > $b); }
+sub gtrr ($a, $b, $c) { $registers[$c] = int($registers[$a] > $registers[$b]); }
+# Equality testing
+sub eqir ($a, $b, $c) { $registers[$c] = int($a == $registers[$b]); }
+sub eqri ($a, $b, $c) { $registers[$c] = int($registers[$a] == $b); }
+sub eqrr ($a, $b, $c) { $registers[$c] = int($registers[$a] == $registers[$b]); }
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+while (<>) {
+    chomp;
+    if (m/^#ip (\d)$/) { $ip_reg = $1; next; }
+    my ($opcode, @io) = split / /;
+    push @code, [ \&$opcode, @io ];
+}
+
+while (0 <= $ip and $ip < @code) {
+    $registers[$ip_reg] = $ip;
+    &{$code[$ip][0]}(@{$code[$ip]}[1,2,3]);
+    $ip = $registers[$ip_reg] + 1;
+}
+
+say $registers[0];

@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/max/;
+
+our @code;
+our @registers = (1, (0) x 5);
+our $ip = 0;    # Instruction pointers
+our $ip_reg;
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+# Addition
+sub addr ($a, $b, $c) { $registers[$c] = $registers[$a] + $registers[$b]; }
+sub addi ($a, $b, $c) { $registers[$c] = $registers[$a] + $b; }
+# Multiplication
+sub mulr ($a, $b, $c) { $registers[$c] = $registers[$a] * $registers[$b]; }
+sub muli ($a, $b, $c) { $registers[$c] = $registers[$a] * $b; }
+# Bitwise AND
+sub banr ($a, $b, $c) { $registers[$c] = $registers[$a] & $registers[$b]; }
+sub bani ($a, $b, $c) { $registers[$c] = $registers[$a] & $b; }
+# Bitwise OR
+sub borr ($a, $b, $c) { $registers[$c] = $registers[$a] | $registers[$b]; }
+sub bori ($a, $b, $c) { $registers[$c] = $registers[$a] | $b; }
+# Assignment
+sub setr ($a, $b, $c) { $registers[$c] = $registers[$a]; }
+sub seti ($a, $b, $c) { $registers[$c] = $a; }
+# Greater-than testing
+sub gtir ($a, $b, $c) { $registers[$c] = int($a > $registers[$b]); }
+sub gtri ($a, $b, $c) { $registers[$c] = int($registers[$a] > $b); }
+sub gtrr ($a, $b, $c) { $registers[$c] = int($registers[$a] > $registers[$b]); }
+# Equality testing
+sub eqir ($a, $b, $c) { $registers[$c] = int($a == $registers[$b]); }
+sub eqri ($a, $b, $c) { $registers[$c] = int($registers[$a] == $b); }
+sub eqrr ($a, $b, $c) { $registers[$c] = int($registers[$a] == $registers[$b]); }
+
+# ------------------------------------------------------------------------------
+#  Given a number, return a hash of prime factors associated with how many
+#  times each occurred.
+# ------------------------------------------------------------------------------
+sub factorize ($num) {
+    my %factors;
+    my $divisor = 2;
+    while ($divisor ** 2 <= $num) {
+        while ($num % $divisor == 0) {
+            $num /= $divisor;
+            $factors{$divisor}++;
+        }
+        $divisor++;
+    }
+    $factors{$num}++ if $num > 1;
+    return %factors;
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+while (<>) {
+    chomp;
+    if (m/^#ip (\d)$/) { $ip_reg = $1; next; }
+    my ($opcode, @io) = split / /;
+    push @code, [ \&$opcode, @io ];
+}
+
+while (0 <= $ip and $ip < @code) {
+    $registers[$ip_reg] = $ip;
+    &{$code[$ip][0]}(@{$code[$ip]}[1,2,3]);
+    $ip = $registers[$ip_reg] + 1;
+    last if $ip == 1;   # Bail out as early as possible
+}
+
+my $number = max(@registers);
+my %factors = &factorize($number);
+my $sum = 1;
+foreach my $factor (keys %factors) {
+    $sum *= ($factor ** ($factors{$factor} + 1) - 1) / ($factor - 1);
+}
+say $sum
