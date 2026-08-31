@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/max/;
+
+# This problem is a lot easier than it looks, because of how the input is
+# crafted. For one, the maze never loops. And the input contains dead-ends that
+# thankfully are not part of the solution but are easy to prune.
+#
+# This solution is a backport of the logic from Part 2, and runs about 3 times
+# faster than the original Part 1 solution.
+
+our ($input) = map { chomp; $_; } <>;
+our (@stack, %seen);
+
+$input =~ s/^\^//;                      # Remove carat from the beginning
+$input =~ s/\$$//;                      # Remove dollar sign from the end
+1 while $input =~ s/\([NESW|]+\|\)//g;  # Prune dead-ends for extra performance
+
+my ($row, $col, $dist) = (0) x 3;
+foreach (split //, $input) {
+    my $key = "${row}\t${col}";
+    $seen{$key} = $dist if $dist < ($seen{$key} // ~0);
+
+    m/N/      && do { $row--; $dist++; next; };
+    m/E/      && do { $col++; $dist++; next; };
+    m/S/      && do { $row++; $dist++; next; };
+    m/W/      && do { $col--; $dist++; next; };
+    m/\(/     && do { push @stack, [$row, $col, $dist]; next; };
+    m/\|/     && do { ($row, $col, $dist) = @{$stack[-1]}; next; };
+    m/\)/     && do { pop @stack; next; };
+    die "Unknown character '$_'";
+}
+
+say max(values %seen);

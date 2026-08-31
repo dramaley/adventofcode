@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# This problem is a lot easier than it looks, because of how the input is
+# crafted. For one, the maze never loops. And the input contains dead-ends that
+# thankfully are not part of the solution but are easy to prune.
+#
+# This variant for Part 1 simplifies the code by not replacing strings with
+# numbers. It takes about 3 times as long to run though, presumably because of
+# the longer string manipulations.
+
+our ($input) = map { chomp; $_; } <>;
+
+$input =~ s/^\^//;                      # Remove carat from the beginning
+$input =~ s/\$$//;                      # Remove dollar sign from the end
+1 while ($input =~ s/NS|SN|EW|WE//g or  # Prune backtracking or circles...
+         $input =~ s/\(\|+\)//g);       # aka the dead-ends
+
+# Replace branches with their longest option
+1 while $input =~ s/\(([NESW]+(?:\|[NESW]+)*)\)/(sort { length($a) <=> length($b) } split '\|', $1)[-1]/e;
+
+say length $input;

@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# This problem is a lot easier than it looks, because of how the input is
+# crafted. For one, the maze never loops. And the input contains dead-ends that
+# thankfully are not part of the solution but are easy to prune.
+#
+# Note that because of how constrained the input is, that this code is not a
+# general solution to the stated problem.
+
+our ($input) = map { chomp; $_; } <>;
+our (@stack, %seen);
+
+$input =~ s/^\^//;                      # Remove carat from the beginning
+$input =~ s/\$$//;                      # Remove dollar sign from the end
+
+my ($row, $col, $dist) = (0) x 3;
+foreach (split //, $input) {
+    my $key = "${row}\t${col}";
+    $seen{$key} = $dist if $dist < ($seen{$key} // ~0);
+
+    m/N/      && do { $row--; $dist++; next; };
+    m/E/      && do { $col++; $dist++; next; };
+    m/S/      && do { $row++; $dist++; next; };
+    m/W/      && do { $col--; $dist++; next; };
+    m/\(/     && do { push @stack, [$row, $col, $dist]; next; };
+    m/\|/     && do { ($row, $col, $dist) = @{$stack[-1]}; next; };
+    m/\)/     && do { pop @stack; next; };
+    die "Unknown character '$_'";
+}
+
+say scalar grep { $_ >= 1000 } values %seen;

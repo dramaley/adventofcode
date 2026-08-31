@@ -1,0 +1,41 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/max/;
+
+# This problem is a lot easier than it looks, because of how the input is
+# crafted. For one, the maze never loops. And the input contains dead-ends that
+# thankfully are not part of the solution but are easy to prune.
+
+our ($input) = map { chomp; $_; } <>;
+
+$input =~ s/^\^//;                      # Remove carat from the beginning
+$input =~ s/\$$//;                      # Remove dollar sign from the end
+1 while ($input =~ s/NS|SN|EW|WE//g or  # Prune backtracking or circles...
+         $input =~ s/\(\|+\)//g);       # aka the dead-ends
+
+# Replace direction strings with their respective lengths, surrounded by angle
+# brackets so they can still be distinguished
+1 while $input =~ s/([NESW]+)/sprintf('<%d>',length $1)/e;
+
+while ($input =~ m/\(/) {
+    foreach ($input =~ m/\((<\d+>(?:\|<\d+>)*)\)/) {
+        # Match positions, start & end
+        my ($p0, $p1) = ($-[0], $+[0]);
+        # Get the largest number in the match
+        my $big = max(map { tr/<>//dr } split /\|/, $1);
+        # Replace the alternation with its largest subpattern
+        substr($input, $p0, $p1-$p0, "<${big}>");
+
+        # Combine adjacent numbers
+        while ($input =~ m/(\d+)><(\d+)/) {
+            # Start & end of the match
+            my ($p0, $p1) = ($-[0], $+[0]);
+            # Add them
+            substr($input, $p0, $p1-$p0, $1 + $2);
+        }
+    }
+}
+
+$input =~ tr/<>//d;
+say $input;
