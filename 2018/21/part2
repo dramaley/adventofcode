@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# Best approach to this problem is to trace through the input by hand,
+# observing how the registers behave, reverse-engineering it, and then coding up
+# something to run the necessary calculations quickly. Turns out there's just
+# one magic number we need from the input, the rest can be discarded.
+
+# Extract the second field from the ninth line (both counts 0-based)
+our $magic = int( (split / /, (<>)[8])[1] );
+
+my %seen;
+my $counter = 0;
+my $unique_counter = -1;
+
+OUTER:
+  while (1) {
+      my $a = $counter | 65536;
+      $counter = $magic;
+      while (1) {
+          $counter = ((($counter + ($a & 255)) & 16777215) * 65899) & 16777215;
+          if ($a < 256) {
+              if (!$seen{$counter}++) {
+                  $unique_counter = $counter;
+                  last;
+              } else {
+                  last OUTER;
+              }
+          }
+          $a >>= 8;
+      }
+  }
+
+say $unique_counter;
