@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/max/;
+
+# Read input
+our @input = map { m/pos=<([-,\d]+)>, r=(\d+)/; [ split(/,/, $1), $2 ] } <>;
+
+# Found the following bit of deep wizardry in the forums.
+our @transitions = (sort { $$a[0] <=> $$b[0] }
+                    map { my ($x, $y, $z, $r) = @$_;
+                          my $d = abs($x) + abs($y) + abs($z);
+                          [ max(0, $d - $r), 1 ], [ $d + $r + 1, -1 ];
+                    } @input);
+
+my ($count, $max_count, $max_distance) = (0) x 3;
+foreach (@transitions) {
+    my ($d, $e) = @$_;
+    $count += $e;
+    ($max_count, $max_distance) = ($count, $d)
+        if $count > $max_count;
+}
+say $max_distance;
