@@ -1,0 +1,85 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use Array::Heap::PriorityQueue::Numeric;
+
+our @grid;
+our ($depth, $cols, $rows) = map { split /,/ } map { tr/0123456789,//cdr } <>;
+our $padding = 700;     # How much to extend the grid beyond the target
+                        # Need at least 15 for the sample input, 698 for actual
+
+# ------------------------------------------
+#  Calculate erosion levels across the grid
+# ------------------------------------------
+
+# Given geologic index, return erosion level
+sub erosion ($index) { return ($index + $depth) % 20183; }
+
+# First row is special
+$grid[0] = [ map { &erosion(16807 * $_) } 0..($cols+$padding) ];
+# Remaining rows
+foreach my $r (1..($rows+$padding)) {
+    # First column is special
+    $grid[$r][0] = &erosion(48271 * $r);
+    foreach my $c (1..($cols+$padding)) {
+        if ($rows == $r and $cols == $c) {
+            # Target position is also special
+            $grid[$r][$c] = &erosion(0);
+        } else {
+            $grid[$r][$c] = &erosion($grid[$r-1][$c] * $grid[$r][$c-1]);
+        }
+    }
+}
+
+# ----------------------------------------------
+#  Convert erosion levels to region type / risk
+# ----------------------------------------------
+
+# The terrain types are:
+#   0 - rocky
+#   1 - wet
+#   2 - narrow
+
+@grid = map { [ map { $_ % 3} @$_ ] } @grid;
+
+# ------------------------------------------
+#  Walk the grid and find the shortest path
+# ------------------------------------------
+
+# The gear that may be deployed are represented by:
+#   0 - None
+#   1 - Torch
+#   2 - Climbing gear
+# This was chosen because when on rocky terrain (0) either the torch or climbing
+# gear *must* be deployed, when on wet terrain (1), the climbing gear *may* be
+# deployed (but not the torch), and when on narrow terrain (2), the torch *may*
+# be deployed (but not the climbing gear). So terrain and gear cannot match.
+
+# Time to Dijkstra the heck out of this.
+my $pq = Array::Heap::PriorityQueue::Numeric->new();
+$pq->add([0, 0, 1, 0], 0);
+my ($row, $col, $gear, $cost, %seen);
+while (my $entry = $pq->get()) {
+    ($row, $col, $gear, $cost) = @$entry;
+    # Been here before
+    next if $seen{join("\t", $row, $col, $gear)}++;
+    # All done!
+    last if $row == $rows and $col == $cols and $gear == 1;
+    # Consider adjacent coordinates
+    foreach ([$row-1, $col], [$row+1, $col], [$row, $col-1], [$row, $col+1]) {
+        my ($next_row, $next_col) = @$_;
+        # Check boundaries
+        next if $next_row < 0 or $next_col < 0;
+        die 'Overran edge of the grid, please embiggen $padding'
+            if $next_row > $#grid or $next_col > $#{$grid[$row]};
+        # Add new location to the queue, if possible to go there
+        my $next_cost = $cost + 1;
+        $pq->add([$next_row, $next_col, $gear, $next_cost], $next_cost)
+            if $grid[$next_row][$next_col] != $gear;
+    }
+    # Add current location to the queue again, but with a gear change.
+    my ($new_gear) = grep { $_ != $gear and $_ != $grid[$row][$col] } (0, 1, 2);
+    my $new_cost = $cost + 7;
+    $pq->add([$row, $col, $new_gear, $new_cost], $new_cost);
+}
+say $cost;

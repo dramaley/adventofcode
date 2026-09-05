@@ -1,0 +1,38 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+our @grid;
+our ($depth, $cols, $rows) = map { split /,/ } map { tr/0123456789,//cdr } <>;
+
+# Calculate erosion level, given the geologic index
+sub erosion ($index) {
+    return ($index + $depth) % 20183;
+}
+
+# Calculate erosion levels across the grid
+
+# First row is special
+$grid[0] = [ map { &erosion(16807 * $_) } 0..$cols ];
+# Remaining rows
+foreach my $r (1..$rows) {
+    # First column is special
+    $grid[$r][0] = &erosion(48271 * $r);
+    foreach my $c (1..$cols) {
+        $grid[$r][$c] = &erosion($grid[$r-1][$c] * $grid[$r][$c-1]);
+    }
+}
+# Target position is also special
+$grid[$rows][$cols] = &erosion(0);
+
+# Convert erosion levels to region type / risk
+
+@grid = map { [ map { $_ % 3} @$_ ] } @grid;
+
+# Show result
+say sum(map { @$_ } @grid);
+
+# Pretty-print the grid
+#my @disp = ('.', '=', '|');     # rocky, wet, narrow
+#say foreach map { join '', map { $disp[$_ % 3] } @$_ } @grid;
