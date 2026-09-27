@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+use List::Util qw/sum zip/;
+
+# Manhattan distance
+sub manhattan ($a, $b) {
+    return sum map { abs($$_[0] - $$_[1]) } zip($a, $b);
+}
+
+our @data = map { chomp; [ split /,/ ]; } <>;
+
+my @constellations;
+while (@data) {
+    my (@new) = shift @data;
+    my $new_ptr = 0;
+    while ($new[$new_ptr]) {
+        for (my $data_ptr = 0; $data_ptr <= $#data; $data_ptr++) {
+            next if not $data[$data_ptr];
+            next if &manhattan($new[$new_ptr], $data[$data_ptr]) > 3;
+            push @new, splice(@data, $data_ptr, 1);
+            redo;
+        }
+        $new_ptr++
+    }
+    push @constellations, \@new;
+}
+
+say scalar @constellations;
