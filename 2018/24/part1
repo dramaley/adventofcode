@@ -1,0 +1,156 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+use List::Util qw/min sum/;
+use List::MoreUtils qw/uniq/;   # Faster than a pure-Perl function
+use Storable qw/dclone/;        # Deep copy of data structures
+
+our (@groups);
+
+# -------------
+#   Functions
+# -------------
+
+# Given an attacker and a target, return how much damage would be dealt
+sub damage ($attacker, $target) {
+    # Target is immune
+    return 0 if (exists $target->{'immunity'} and
+                 $target->{'immunity'} =~ m/$attacker->{'attack_type'}/);
+    # Base damage
+    my $damage = &effective_power($attacker);
+    # Multiplier for a weak target
+    $damage *= 2 if (exists $target->{'weakness'} and
+                     $target->{'weakness'} =~ m/$attacker->{'attack_type'}/);
+
+    return $damage;
+}
+
+# Given a group, return its effective power
+sub effective_power ($group) {
+    $group->{'units'} * $group->{'attack_damage'};
+}
+
+# ---------------
+#   Parse Input
+# ---------------
+
+{   my $label;
+    foreach (<>) {
+        chomp;
+        m/^Immune System/ && do { $label = 'immune';    next; };
+        m/^Infection/     && do { $label = 'infection'; next; };
+        # If anyone is collecting evidence for regex just being line noise...
+        m/^(?<units>\d+) units each with (?<hp>\d+) hit points(?: \((?=[^)]*weak to (?<weakness>[^);]+))?(?=[^)]*immune to (?<immunity>[^);]+))?[^)]+\))? with an attack that does (?<attack_damage>\d+) (?<attack_type>\w+) damage at initiative (?<initiative>\d+)/ && do {
+            # Copy the captures
+            my %hash = %{ dclone(\%+) };
+            # Convert to integer type
+            $hash{$_} = int($hash{$_})
+                foreach 'attack_damage', 'hp', 'initiative', 'units';
+            # Add the label
+            $hash{'label'} = $label;
+            # Save it
+            push @groups, \%hash;
+            next;
+        };
+        m/^$/ && do next;       # There's exactly 1 blank line
+        die "Bad input \"$_\""; # "Error checking"
+    }
+}
+
+# ---------------------
+#   Commence Fighting
+# ---------------------
+
+my $fight = 0;
+# Loop while both armies survive
+while (scalar(uniq map { $_->{'label'} } @groups) > 1) {
+
+    # --------------------
+    #   Target Selection
+    # --------------------
+
+    my %targets;
+    {
+        # Schwartzian Transform to find target order
+        my @target_order = (map { $$_[2] }
+                            sort { $$b[0] <=> $$a[0] or $$b[1] <=> $$a[1] }
+                            map { [ &effective_power($groups[$_]),
+                                    $groups[$_]{'initiative'},
+                                    $_ ] }
+                            0..$#groups);
+
+        # Associate index of an attacker with its chosen target
+        my %targeted;
+        foreach my $i (@target_order) {
+            # Schwartzian Transform to find a target
+            my $target = (# Put the Schwartz away
+                          map { $$_[3] }
+                          # Sort whatever's left
+                          sort { ($$b[0] <=> $$a[0] or
+                                  $$b[1] <=> $$a[1] or
+                                  $$b[2] <=> $$a[2]) }
+                          # Can inflict damage?
+                          grep { $$_[0] > 0 }
+                          # Use the Schwartz
+                          map { [ &damage($groups[$i], $groups[$_]),
+                                  &effective_power($groups[$_]),
+                                  $groups[$_]{'initiative'},
+                                  $_ ] }
+                          # Skip if already targeted
+                          grep { not $targeted{$_} }
+                          # Only target enemies
+                          grep { ($groups[$i]{'label'} ne
+                                  $groups[$_]{'label'}) }
+                          # Examine all but $i
+                          0..($i-1),($i+1)..$#groups
+                )[0];
+            if (defined $target) {
+                $targets{$i} = $target;
+                $targeted{$target} = 1;
+            }
+        }
+    }
+
+    # ----------
+    #   Attack
+    # ----------
+
+    # Schwartzian Transform to find attack order
+    my @attack_order = (map { $$_[1] }
+                        sort { $$b[0] <=> $$a[0] }
+                        map { [ $groups[$_]{'initiative'},
+                                $_ ] }
+                        0..$#groups);
+
+    my $total_losses = 0;
+    foreach my $attacker (@attack_order) {
+        next if not $groups[$attacker]; # Attacker is already dead
+        next if not exists $targets{$attacker};# No target was identified
+        my $target = $targets{$attacker};
+        next if not $groups[$target];   # Target is already dead
+
+        my $damage = &damage($groups[$attacker], $groups[$target]);
+        my $losses = int($damage / $groups[$target]{'hp'});
+        $losses = min($losses, $groups[$target]{'units'});
+        $groups[$target]{'units'} -= $losses;
+        $total_losses += $losses;
+
+#        say "$attacker attacks $target, killing $losses";
+
+        $groups[$target] = undef        # Target died
+            if $groups[$target]{'units'} <= 0;
+    }
+
+    # Trim dead groups
+    @groups = grep { $_ } @groups;
+
+    if (not $total_losses) {
+        say 'Stalemate!';
+        last;
+    }
+
+#    say 'Fight ', ++$fight, ' finished.';
+}
+
+say sum map { $_->{'units'} } @groups;
