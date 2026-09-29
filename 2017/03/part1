@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use POSIX qw/ceil/;
+
+sub manhattan_spiral ($s) {
+    return 0 if $s == 1;        # The trivial case
+
+    my $n = ceil sqrt $s;       # Find the lowest square root larger than $s
+    $n++ if ($n % 2) == 0;      # ...that is also odd
+
+    my $fs = ($n**2 - $s) % ($n - 1);
+
+    if ($fs > (($n-1)/2)) {
+        return $fs;
+    } else {
+        return $n - 1 - $fs;
+    }
+}
+
+our ($data) = map { chomp; int; } <>;
+say &manhattan_spiral($data);
