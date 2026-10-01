@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @data = map { chomp; int; } <>;
+our $ptr = 0;
+
+my $jumps = 0;
+while ($ptr >= 0 and $ptr <= $#data) {
+    my $offset = $data[$ptr];
+    $data[$ptr] += ($offset >= 3 ? -1 : 1);
+    $ptr += $offset;
+    $jumps++;
+}
+say $jumps;
+
+#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
+#print Data::Dumper->Dump([\@data], ['*data']);
