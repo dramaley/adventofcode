@@ -13,6 +13,3 @@ while ($ptr >= 0 and $ptr <= $#data) {
     $jumps++;
 }
 say $jumps;
-
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([\@data], ['*data']);
