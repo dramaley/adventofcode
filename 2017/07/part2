@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+our %weight;    # Associate disc with its weight
+our %below;     # Map disc to the one below it
+our %above;     # Map disc to those above it
+our %total;     # Associate disc with total weight (itself + those above)
+
+# ------------------------------------------------------------------------------
+#  Functions
+# ------------------------------------------------------------------------------
+
+# Given the name of a disk that has others above it, check if it is balanced
+sub balanced ($name) {
+    my (@list) = (sort { $a<=>$b }
+                  map { $total{$_} }
+                  @{ $above{$name} });
+    $list[0] == $list[-1];
+}
+
+# Recursively calculate the weight of a tower. %total caching for the win!
+sub total ($name) {
+    $total{$name} //= sum $weight{$name}, map { &total($_) } @{ $above{$name} || [] };
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Parse input
+while (<>) {
+    #m/^(?<name>[a-z]+) \((?<weight>\d+)\)(?: -> (?<above>[a-z, ]+))?$/
+    #    or die 'Bad input';
+    # This seems simpler than the regex--use tr/// to delete cruft, then split
+    my ($name, $weight, @above) = split /\s+/, tr/a-z0-9 //cdr;
+
+    $weight{$name} = $weight;
+    if (@above) {
+        $above{$name} = \@above;                # As above,
+        @below{@above} = ($name) x @above;      # so below
+    }
+}
+
+# Populate %total
+&total($_) foreach keys %weight;
+
+# Find the highest unbalanced disc--it'll be the lightest
+my $highest_unbalanced = (sort { $total{$a} <=> $total{$b} }
+                          grep { not &balanced($_) }
+                          keys %above)[0];
+
+# The bad disc is above the unbalanced one, so tally the above weights
+my %seen;
+$seen{$_}++ foreach map { $total{$_} } @{ $above{$highest_unbalanced} };
+
+# Now flip those to determine the bad and good weights
+my %flip = reverse %seen;               # This hash will only have 2 keys:
+my $bad_weight = delete $flip{'1'};     #   '1' for the bad one
+my $good_weight = (values %flip)[0];    #   something else for the good ones
+
+# Get the weight of the bad disc
+my ($bad_disc) = (grep { $total{$_} == $bad_weight }
+		  @{ $above{$highest_unbalanced} });
+
+# Finally, figure out what it should be
+say $weight{$bad_disc} + ($good_weight - $bad_weight);
