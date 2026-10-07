@@ -1,10 +1,30 @@
 #!/usr/bin/perl
 
 use v5.36.0;    # Implies strict + warnings
+use List::Util qw/min sum/;
 
+our %input;
+$input{$_}++ foreach map { chomp; split /,/ } <>;
 
+# Ensure each direction is defined
+$input{$_} //= 0 foreach 'n', 's', 'ne', 'sw', 'nw', 'se';
 
+# Cancel opposing movement
+foreach (['n', 's'], ['ne', 'sw'], ['nw', 'se']) {
+    my ($one, $two) = @$_;
+    my $deduction = min(@input{$one, $two});
+    $input{$one} -= $deduction;
+    $input{$two} -= $deduction;
+}
 
+# Consolidate directions
+foreach (['n', 'ne', 'se'], ['ne', 'se', 's'], ['se', 's', 'sw'],
+         ['s', 'sw', 'nw'], ['sw', 'nw', 'n'], ['nw', 'n', 'ne']) {
+    my ($lt, $mid, $rt) = @$_;
+    my $deduction = min(@input{$lt, $rt});
+    $input{$lt} -= $deduction;
+    $input{$mid} += $deduction;
+    $input{$rt} -= $deduction;
+}
 
-#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
-#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
+say sum values %input;

@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use utf8;
+use List::Util qw/max min sum/;
+
+# Represent moves on the hex grid as offset coordinates
+our %moves = (
+    'n'  => [  0,  2 ],
+    'ne' => [  1,  1 ],
+    'se' => [  1, -1 ],
+    's'  => [  0, -2 ],
+    'sw' => [ -1, -1 ],
+    'nw' => [ -1,  1 ]);
+
+our ($dist, $col, $row) = (0) x 3;
+
+foreach (map { chomp; split /,/ } <>) {
+    my ($Δcol, $Δrow) = @{$moves{$_}};
+    $col += $Δcol;
+    $row += $Δrow;
+    my $new_dist = abs($col) + max(0, ($row-$col)/2);
+    $dist = $new_dist if $new_dist > $dist;
+}
+
+say $dist;
