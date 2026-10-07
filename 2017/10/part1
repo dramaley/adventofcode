@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+#our @list = (0..4);     # sample
+our @list = (0..255);   # real data
+
+my $position = 0;
+my $skipsize = 0;
+foreach my $length (map { chomp; split /,/ } <>) {
+    my (@positions) = map { $_ % @list } ($position..($position + $length - 1));
+    @list[@positions] = reverse @list[@positions];
+    $position += $length + $skipsize;
+    $skipsize++;
+}
+
+say $list[0] * $list[1];

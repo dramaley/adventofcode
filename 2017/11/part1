@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+
+
+
+
+#use Data::Dumper qw//; $Data::Dumper::Sortkeys = 1; #$Data::Dumper::Useqq = 1;
+#print Data::Dumper->Dump([$foo, $bar], ['*foo', '*bar']);
