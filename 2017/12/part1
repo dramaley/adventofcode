@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @input;
+
+# Parse input
+foreach (map { [ m/(\d+)/g ]} <>) {
+    my ($i, @connections) = @$_;
+    $input[$i] = \@connections;
+}
+
+# Traverse the pipes
+my @queue = (0);
+my %seen;
+while (@queue) {
+    my $this = shift @queue;
+    next if $seen{$this}++;
+    push @queue, @{ $input[$this] };
+}
+
+say scalar keys %seen;
