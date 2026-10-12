@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+#our @pgms = ('a'..'e'); # Sample
+our @pgms = ('a'..'p'); # Real data
+
+foreach (map { chomp; split /,/; } <>) {
+    m/^s(\d+)$/        && do { unshift @pgms, splice(@pgms, -$1); next;};
+    m/^x(\d+)\/(\d+)$/ && do { @pgms[$1, $2] = @pgms[$2, $1]; next; };
+    m/^p(\w)\/(\w)$/   && do { my @indices = grep { $pgms[$_] eq $1 or
+                                                    $pgms[$_] eq $2 } 0..$#pgms;
+                               @pgms[@indices] = @pgms[reverse @indices];
+                               next; };
+    die;
+}
+
+say join('', @pgms);
