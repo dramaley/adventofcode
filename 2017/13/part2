@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+# Read the scanners
+our %scanners = map { int } map { chomp; split /: /; } <>;
+
+# Calculate the value of a triangle wave given the time and amplitude
+sub triangle_wave ($time, $size) {
+    my $period = $size * 2;
+    my $remainder = $time % $period;
+    return $size - abs($remainder - $size);
+}
+
+# Run the simulation with a delay factor, returning how many times we got caught
+sub simulation ($delay) {
+    return scalar grep { &triangle_wave($_+$delay, $scanners{$_}-1) == 0 }
+                  keys %scanners;
+}
+
+my $t = 0;
+$t++ while &simulation($t);
+say $t;
