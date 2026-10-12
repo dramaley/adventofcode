@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our %factor = ('A' => 16807, 'B' => 48271);
+our %previous = map { m/Generator (\w) starts with (\d+)/g; } <>;
+
+my $matches = 0;
+foreach (1..5_000_000) {
+    do {
+        $previous{'A'} *= $factor{'A'};
+        $previous{'A'} %= 2147483647;   # This magic number is 2^31-1
+    } while $previous{'A'} % 4;
+
+    do {
+        $previous{'B'} *= $factor{'B'};
+        $previous{'B'} %= 2147483647;
+    } while $previous{'B'} % 8;
+
+    $matches++ if ($previous{'A'} & 65535) == ($previous{'B'} & 65535)
+}
+
+say $matches;
