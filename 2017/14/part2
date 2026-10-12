@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our ($input) = map { chomp; $_ } <>;
+our (@grid) = map { &knothash("${input}-$_") } 0..127;
+
+# Knot hash algorithm from Day 10
+sub knothash ($data) {
+    my @lengths = map { ord } map { split // } $data;
+    push @lengths, 17, 31, 73, 47, 23;
+
+    my @list = (0..255);
+    my $position = 0;
+    my $skipsize = 0;
+
+    foreach my $round (1..64) {
+        foreach my $length (@lengths) {
+            my (@positions) = map { $_ % @list } $position..($position+$length-1);
+            @list[@positions] = reverse @list[@positions];
+            $position += $length + $skipsize;
+            $skipsize++;
+        }
+    }
+
+    my @dense_hash;
+    while (my (@chunk) = splice @list, 0, 16) {
+        push @dense_hash, 0;
+        $dense_hash[-1] ^= $_ foreach @chunk;
+    }
+
+    # The original knot hash algorithm would return hexadecimal, like so:
+    #return map { sprintf '%02x', $_ } @dense_hash;
+    # But for this program it is more efficient to return binary:
+    return [ map { int } map { split // }
+             map { unpack("B8", pack("C", $_)) } @dense_hash ];
+}
+
+# Given a coordinate that is in a region of the grid, erase the whole region
+sub region_erase ($start_row, $start_col) {
+    my @queue = ([$start_row, $start_col]);
+    while (@queue) {
+        my ($r, $c) = @{ shift @queue };
+        # Out of bounds
+        next if $r < 0 or $r > $#grid;
+        next if $c < 0 or $c > $#{$grid[$r]};
+        # This block has already been cleared
+        next if not $grid[$r][$c];
+        # Clear this block and then schedule adjacent blocks for checking
+        $grid[$r][$c] = 0;
+        push @queue, ([$r, $c-1], [$r, $c+1], [$r-1, $c], [$r+1, $c]);
+    }
+}
+
+my $regions = 0;
+for (my $row = 0; $row < @grid; $row++) {
+    for (my $col = 0; $col < @{$grid[$row]}; $col++) {
+        if ($grid[$row][$col]) {
+            $regions++;
+            &region_erase($row, $col);
+        }
+    }
+}
+
+say $regions
