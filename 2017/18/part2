@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @code;
+our @registers = ({'p' => 0},   # Registers for programs 0 and 1
+                  {'p' => 1});
+our @instptr = (0, 0);          # Instruction pointers for programs 0 and 1
+our @queues = ([], []);         # Send/receive queues for programs 0 and 1
+our $pgm;                       # Which program (0 or 1) is actively running
+
+our $counter = 0;               # Result counter
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+# Single-argument instructions
+sub rcv ($reg) {
+    return if not @{$queues[$pgm]};     # Nothing to do!
+    $registers[$pgm]{$reg} = shift @{$queues[$pgm]};
+    $instptr[$pgm]++;
+}
+sub snd ($one) {
+    $counter++ if $pgm == 1;            # This is what we care about. Yay.
+
+    # Note that "1-$pgm" pushes to the _other_ program's queue
+    push @{$queues[1-$pgm]}, &get($one);
+    $instptr[$pgm]++;
+}
+
+# Dual-argument instructions that always take a register as the first argument,
+# but are flexible for the second argument
+sub add ($reg, $two) { ($registers[$pgm]{$reg} //= 0) += &get($two);
+                       $instptr[$pgm]++; }
+sub mod ($reg, $two) { ($registers[$pgm]{$reg} //= 0) %= &get($two);
+                       $instptr[$pgm]++; }
+sub mul ($reg, $two) { ($registers[$pgm]{$reg} //= 0) *= &get($two);
+                       $instptr[$pgm]++; }
+sub set ($reg, $two) { $registers[$pgm]{$reg}         =  &get($two);
+                       $instptr[$pgm]++; }
+
+# Dual-argument instructions that accept either a register or a value
+sub jgz ($one, $two) { $instptr[$pgm] += (&get($one) > 0 ? &get($two) : 1); }
+
+# ------------------------------------------------------------------------------
+#  Figure out if an argument refers to a register or a direct value and return
+#  whatever the value is
+# ------------------------------------------------------------------------------
+sub get ($thingy) {
+    if ($thingy =~ m/^([a-z]+)$/) {
+        return $registers[$pgm]{$1} // 0;
+    }
+    if ($thingy =~ m/^-?\d+$/) {
+        return int $thingy;
+    }
+    die "Unrecognized: ${thingy}";
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+while (<>) {
+    chomp;
+    my ($opcode, @io) = split /\s+/;
+    push @code, [ \&$opcode, @io ];
+}
+
+while (1) {
+    my $progress = 0;           # Increment when a program makes progress
+    foreach $pgm (0, 1) {       # Try to run an instruction from each program
+        my $oldptr = $instptr[$pgm];
+        &{$code[$oldptr][0]}( @{$code[$oldptr]}[1..$#{$code[$oldptr]}] )
+            if 0 <= $oldptr and $oldptr <= $#code;
+        $progress++ if $oldptr != $instptr[$pgm];
+    }
+    last if $progress == 0;     # Mutual deadlock
+}
+
+say $counter;

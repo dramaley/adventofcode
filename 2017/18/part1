@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @code;
+our %registers;
+our $instptr = 0;       # Instruction pointer
+our $frequency;         # Last sound that was played
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+# Single-argument instructions
+sub rcv ($one) { if (&get($one) != 0) { say $frequency; exit; } else { $instptr++; } }
+sub snd ($one) { $frequency = &get($one); $instptr++; }
+
+# Dual-argument instructions that always take a register as the first argument,
+# but are flexible for the second argument
+sub add ($reg, $two) { ($registers{$reg} //= 0) += &get($two); $instptr++; }
+sub mod ($reg, $two) { ($registers{$reg} //= 0) %= &get($two); $instptr++; }
+sub mul ($reg, $two) { ($registers{$reg} //= 0) *= &get($two); $instptr++; }
+sub set ($reg, $two) { $registers{$reg}         =  &get($two); $instptr++; }
+
+# Dual-argument instructions that accept either a register or a value
+sub jgz ($one, $two) { $instptr += (&get($one) > 0 ? &get($two) : 1); }
+
+# ------------------------------------------------------------------------------
+#  Figure out if an argument refers to a register or a direct value and return
+#  whatever the value is
+# ------------------------------------------------------------------------------
+sub get ($thingy) {
+    if ($thingy =~ m/^([a-z]+)$/) {
+        return $registers{$1} // 0;
+    }
+    if ($thingy =~ m/^-?\d+$/) {
+        return int $thingy;
+    }
+    die "Unrecognized: ${thingy}";
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+while (<>) {
+    chomp;
+    my ($opcode, @io) = split /\s+/;
+    push @code, [ \&$opcode, @io ];
+}
+
+while (0 <= $instptr and $instptr <= $#code) {
+    &{$code[$instptr][0]}( @{$code[$instptr]}[1..$#{$code[$instptr]}] );
+}
