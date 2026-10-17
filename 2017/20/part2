@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+use List::MoreUtils qw/uniq/;
+
+our @input = (map { { 'd' => [ @$_[0..2] ],     # Displacement
+                      'v' => [ @$_[3..5] ],     # Velocity
+                      'a' => [ @$_[6..8] ] } }  # Acceleration
+              map { [ map { int } m/[-0-9]+/g ] } <>);
+
+# ------------------------------------------------------------------------------
+#  Given indices to 2 particles and what numerical axis to look at, determine
+#  the coefficients of the quadratic equation, at² + bt + c = 0, that when
+#  solved will give the time(s) the particles intersect.
+#  Note that the quadratic equation is usually represented with "x" as the
+#  variable, but since we're solving for time "t" is used instead.
+# ------------------------------------------------------------------------------
+sub abc ($p1, $p2, $axis) {
+    my $a = ($input[$p1]{'a'}[$axis] - $input[$p2]{'a'}[$axis]) / 2;
+    my $b = (($input[$p1]{'v'}[$axis] + $input[$p1]{'a'}[$axis] / 2) -
+             ($input[$p2]{'v'}[$axis] + $input[$p2]{'a'}[$axis] / 2));
+    my $c = $input[$p1]{'d'}[$axis] - $input[$p2]{'d'}[$axis];
+    return ($a, $b, $c);
+}
+
+my %collisions;
+# Check all possible particle pairings for future collisions
+for(my $i = 0; $i < $#input; $i++) {
+    for(my $j = $i + 1; $j <= $#input; $j++) {
+        # Get quadratic coefficients for the x-axis
+        my ($a, $b, $c) = &abc($i, $j, 0);
+
+        # Attempt to solve the quadratic. Recall the formula:
+        #     -b ± √(b²-4×a×c)
+        #     ---------------- = 0
+        #           2×a
+        # The formula can have 0, 1, or 2 solutions.
+        my @times;
+        if ($a == 0) {                  # Quadratic formula isn't necessary
+            next if $b == 0;            # Can't divide by 0; no solution
+            push @times, -$c/$b;        # 1 solution!
+        } else {
+            my $b24ac = ($b ** 2) - (4 * $a * $c);
+            if ($b24ac < 0) {           # Imaginary numbers aren't allowed;
+                next;                   # no solution
+            } elsif ($b24ac == 0) {     # √ part goes away; 1 solution
+                push @times, -$b / (2 * $a);
+            } else {                    # 2 solutions!
+                my $sqrt = sqrt($b24ac);
+                push @times, (-$b + $sqrt) / (2 * $a);
+                push @times, (-$b - $sqrt) / (2 * $a);
+            }
+        }
+
+        my ($ya, $yb, $yc) = &abc($i, $j, 1);   # Coefficients for the y-axis
+        my ($za, $zb, $zc) = &abc($i, $j, 2);   # Same for z-axis
+
+        # Check for collisions on the other 2 axes
+        push @{$collisions{$_}}, ($i, $j) foreach
+            (grep { $za * $_ ** 2 + $zb * $_ + $zc == 0 }   # Check z-axis match
+             grep { $ya * $_ ** 2 + $yb * $_ + $yc == 0 }   # Check y-axis match
+             grep { $_ == int $_ }      # Even time steps only
+             grep { $_ >= 0 }           # Don't care about the past
+             @times);
+    }
+}
+
+# Remove particles that collide
+foreach my $key (sort { $a <=> $b } keys %collisions) {
+    my (@indices) = grep { defined $input[$_] } &uniq(@{$collisions{$key}});
+    next if @indices < 2;       # Need at least 2 particles to collide
+    undef $input[$_] foreach @indices;
+}
+
+# How many are left?
+say scalar grep { defined } @input;

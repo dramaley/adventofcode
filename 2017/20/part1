@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/sum/;
+
+our @input;
+
+# Store Manhattan distance, velocity, and acceleration
+while (<>) {
+    # Super cheap parser: discard negative signs and then sum the numbers.
+    tr/-//d;
+    push @input, [ map { sum(split /,/) } m/<([0-9,]+)>/g ];
+}
+
+# Sorting this way to find the answer works because acceleration is always the
+# most important factor over the long term.
+my (@sorted) = (map { $_->[0] }
+                sort { ($a->[3] <=> $b->[3] or  # Sort by acceleration
+                        $a->[2] <=> $b->[2] or  # then velocity
+                        $a->[1] <=> $b->[1]) }  # then distance
+                map { [ $_, @{$input[$_]} ] }
+                0..$#input);
+
+say $sorted[0];
