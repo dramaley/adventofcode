@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use utf8;
+
+# What to add to ($row, $col) for each direction
+our @movement = ([-1,  0],      # Up
+                 [ 0,  1],      # Right
+                 [ 1,  0],      # Down
+                 [ 0, -1]);     # Left
+
+# Grid is unbounded (can go negative), so read it into a hash with row,col keys
+our %grid;
+while (<>) {
+    while (m/#/g) {
+        my $key = ($. - 1) . ',' . (pos() - 1);
+        $grid{$key} = 2;
+    }
+}
+
+# Starting position
+our $row = ($.-1)/2;
+our $col = $row;
+our $dir = 0;
+
+
+my $infection = 0;
+foreach (1..10_000_000) {
+    my $key = "${row},${col}";
+    # Infection states: 0 = clean, 1 = weak, 2 = infected, 3 = flagged
+    if (($grid{$key} // 0) == 0) {      # Clean
+        $dir--;                         # Turn left
+    } elsif ($grid{$key} == 1) {        # Weak
+        $infection++;                   # Track number of infections done
+    } elsif ($grid{$key} == 2) {        # Infected
+        $dir++;                         # Turn right
+    } elsif ($grid{$key} == 3) {        # Flagged
+        $dir += 2;                      # Turn around
+    }
+    $grid{$key}++;
+    $grid{$key} %= 4;
+
+    $dir %= @movement;
+    my ($Δrow, $Δcol) = @{$movement[$dir]};   # Move it
+    $row += $Δrow;
+    $col += $Δcol;
+}
+say $infection;
