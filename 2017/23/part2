@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use Math::Prime::Util qw/is_prime/;
+
+our @code;
+our %registers = ('a' => 1);
+our $instptr = 0;       # Instruction pointer
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+sub jnz ($one, $two) { $instptr += (&get($one) != 0 ? &get($two) : 1); }
+
+sub mul ($reg, $arg) { ($registers{$reg} //= 0) *= &get($arg);
+                       $instptr++; }
+
+sub set ($reg, $arg) { $registers{$reg}         =  &get($arg);
+                       $instptr++; }
+
+sub sub ($reg, $arg) { ($registers{$reg} //= 0) -= &get($arg);
+                       $instptr++; }
+
+# ------------------------------------------------------------------------------
+#  Figure out if an argument refers to a register or a direct value and return
+#  whatever the value is
+# ------------------------------------------------------------------------------
+sub get ($thingy) {
+    if ($thingy =~ m/^([a-z]+)$/) {
+        return $registers{$1} // 0;
+    }
+    if ($thingy =~ m/^-?\d+$/) {
+        return int $thingy;
+    }
+    die "Unrecognized: ${thingy}";
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+while (<>) {
+    chomp;
+    my ($opcode, @io) = split /\s+/;
+    push @code, [ \&$opcode, @io ];
+}
+
+while (0 <= $instptr and $instptr <= $#code) {
+    &{$code[$instptr][0]}( @{$code[$instptr]}[1..$#{$code[$instptr]}] );
+    # Break once f is set
+    last if $registers{'f'} // 0;
+}
+
+# Magic numbers we need are in registers b and c. Find non-primes in that range.
+my $nonprime = 0;
+for (my $i = $registers{'b'}; $i <= $registers{'c'}; $i += 17) {
+    $nonprime++ if not is_prime($i);
+}
+say $nonprime;

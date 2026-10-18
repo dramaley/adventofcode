@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @code;
+our %registers;
+our $instptr = 0;       # Instruction pointer
+our $muls = 0;          # How many times mul is called
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+sub jnz ($one, $two) { $instptr += (&get($one) != 0 ? &get($two) : 1); }
+
+sub mul ($reg, $arg) { ($registers{$reg} //= 0) *= &get($arg);
+                       $instptr++; $muls++ }
+
+sub set ($reg, $arg) { $registers{$reg}         =  &get($arg);
+                       $instptr++; }
+
+sub sub ($reg, $arg) { ($registers{$reg} //= 0) -= &get($arg);
+                       $instptr++; }
+
+# ------------------------------------------------------------------------------
+#  Figure out if an argument refers to a register or a direct value and return
+#  whatever the value is
+# ------------------------------------------------------------------------------
+sub get ($thingy) {
+    if ($thingy =~ m/^([a-z]+)$/) {
+        return $registers{$1} // 0;
+    }
+    if ($thingy =~ m/^-?\d+$/) {
+        return int $thingy;
+    }
+    die "Unrecognized: ${thingy}";
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+while (<>) {
+    chomp;
+    my ($opcode, @io) = split /\s+/;
+    push @code, [ \&$opcode, @io ];
+}
+
+while (0 <= $instptr and $instptr <= $#code) {
+    &{$code[$instptr][0]}( @{$code[$instptr]}[1..$#{$code[$instptr]}] );
+}
+
+say $muls;
