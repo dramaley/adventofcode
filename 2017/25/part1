@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our ($chksum_steps, $state, %states, @tape);
+our $cursor = 0;
+
+# Parse input
+{
+    my ($s_ptr, $v_ptr);        # state and value pointers
+    while (<>) {
+        chomp;
+        m/^Begin in state ([A-Z])\.$/    && do { $state = $1; next; };
+        m/^Perform a diagnostic checksum after (\d+) steps\.$/ &&
+            do { $chksum_steps = $1;
+                 next;};
+        m/^In state ([A-Z]):$/           && do { $s_ptr = $1; next; };
+        m/If the current value is (\d):/ && do { $v_ptr = $1; next; };
+        m/- Write the value (\d)\./ &&
+            do { $states{$s_ptr}[$v_ptr]{'write'} = int $1;
+                 next; };
+        m/- Move one slot to the (left|right)\./ &&
+            do { $states{$s_ptr}[$v_ptr]{'move'} = $1 eq 'left' ? -1 : 1;
+                 next; };
+        m/- Continue with state ([A-Z])\./ &&
+            do { $states{$s_ptr}[$v_ptr]{'next'} = $1;
+                 next; };
+    }
+}
+
+# Run the simulation
+foreach (1..$chksum_steps) {
+    # Lengthen the tape to the left
+    while ($cursor < 0) {
+        unshift @tape, 0;
+        $cursor++;
+    }
+
+    my $this = $states{$state}[ $tape[$cursor] // 0 ];
+    $tape[$cursor] = $$this{'write'};
+    $cursor += $$this{'move'};
+    $state = $$this{'next'};
+}
+
+say scalar grep { $_ } @tape;
