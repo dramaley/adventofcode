@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# What to add to ($row, $col) for each direction
+our @movement = ([-1,  0],      # Up
+                 [ 0,  1],      # Right
+                 [ 1,  0],      # Down
+                 [ 0, -1]);     # Left
+
+# Starting position
+our ($row, $col, $dir) = (0) x 3;
+
+# Figure out the destination
+my %seen;
+OUTER:
+    foreach my $instruction (map { chomp; split /, /; } <>) {
+        $instruction =~ m/^(?<dir>L|R)(?<dist>\d+)$/ or die;
+
+        $dir += $+{'dir'} eq 'L' ? -1 : 1;
+        $dir %= @movement;
+
+        # Process each step individually so we can keep track of seen locations
+        foreach (1..$+{'dist'}) {
+            $row += $movement[$dir][0];
+            $col += $movement[$dir][1];
+            last OUTER if $seen{join(',', $row, $col)}++;
+        }
+    }
+
+say abs($row) + abs($col);
