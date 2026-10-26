@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use List::Util qw/max/;
+
+our $components = join(' ', map { chomp; $_ } <>);
+
+# Given a port and components...
+sub bridge ($port, $comps) {
+    my @strengths = (0);
+    while ($comps =~ m/\b(?<m>${port}\/(?<p2>\d+)|(?<p2>\d+)\/${port})\b/g) {
+        my ($match, $port2) = @+{'m','p2'};
+        (my $new_comps = $comps) =~ s/\b${match}\b//;
+        push @strengths, $port + &bridge($port2, $new_comps);
+    }
+    return $port + max(@strengths);
+}
+
+say &bridge(0, $components);
