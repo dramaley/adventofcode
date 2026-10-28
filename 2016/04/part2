@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+while (<>) {
+    # Parse input
+    m/^(?<name>[-a-z]+)-(?<id>[0-9]+)\[(?<chksum>[a-z]{5})\]$/ or die;
+    my ($name, $id, $chksum) = @+{'name', 'id', 'chksum'};
+
+    # Tally the letters in the name
+    my %seen;
+    $seen{$_}++ foreach grep { /[a-z]/ } split //, $name;
+
+    # Calculate the checksum and compare it to the one that was given
+    my $real_chksum = join('', (sort { $seen{$b} <=> $seen{$a} or $a cmp $b } keys %seen)[0..4]);
+    next if not $real_chksum eq $chksum;
+
+    # Build the Caesar cipher
+    my $local_id = $id % 26;
+    my $caesar = join('', ('a'..'z')[$local_id..25,0..($local_id-1)]);
+
+    # tr doesn't support variables 🙄 so wrap it in an eval()
+    eval "\$name =~ tr/a-z\-/${caesar} /";
+    say $id if $name =~ m/north/;
+}

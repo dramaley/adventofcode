@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+my $sum = 0;
+while (<>) {
+    # Parse input
+    die if not m/^(?<name>[-a-z]+)-(?<id>[0-9]+)\[(?<chksum>[a-z]{5})\]$/;
+    my ($name, $id, $chksum) = @+{'name', 'id', 'chksum'};
+
+    # Tally the letters in the name
+    my %seen;
+    $seen{$_}++ foreach grep { m/[a-z]/ } split //, $name;
+
+    # Calculate the checksum and compare it to the one that was given
+    my $real_chksum = join('', (sort { $seen{$b} <=> $seen{$a} or $a cmp $b } keys %seen)[0..4]);
+    $sum += $id if $real_chksum eq $chksum;
+}
+say $sum;
