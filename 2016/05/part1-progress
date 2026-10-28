@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use Digest::MD5 qw/md5_hex/;
+$| = 1;         # Unbuffered output
+
+# This version prints each character as it is discovered, providing a progress indicator
+our ($doorid) = map { chomp; $_ } <>;
+my $len = 0;
+for (my $i = 0; $len < 8; $i++) {
+    my $hash = md5_hex("${doorid}${i}");
+    next if $hash !~ /^00000(\w)/;
+    print $1;
+    $len++;
+}
+print "\n";
