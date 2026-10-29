@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# Regex to match "ABA...[...BAB...]" (where A and B must be distinct)
+my $aba_bab = '(?<A>\w)(?<B>(?!\g{A})\w)\g{A}(?!\w*\]).*\[\w*\g{B}\g{A}\g{B}\w*\]';
+# Regex to match "[...BAB...]...ABA"
+my $bab_aba = '\[\w*(?<B>\w)(?<A>(?!\g{B})\w)\g{B}\w*\].*(?<!\[\w{,254})\g{A}\g{B}\g{A}';
+# Combine those
+my $regex = qr/${aba_bab}|${bab_aba}/;
+
+say scalar grep { /${regex}/ } <>;

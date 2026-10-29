@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# Regex to match the "ABBA" pattern. "A" and "B" must be distinct.
+our $abba = '(?<A>\w)(?<B>(?!\g{A})\w)\g{B}\g{A}';
+
+my $count = 0;
+while (<>) {
+    next if /\[\w*${abba}\w*\]/o;       # ABBA within square brackets is invalid
+    s/\[\w*\]/ /g;                      # Ignore square brackets
+    $count++ if /${abba}/o;
+}
+say $count;
+
+# Note that the input does not contain any nested square brackets. If that were
+# not the case, the pattern to ignore square brackets would have to be more
+# sophisticated.
