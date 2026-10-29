@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# Parse input. Array index is the position in the string; value is a hash that
+# associates letters with their frequency.
+our @seen;
+while (<>) {
+    chomp;
+    my (@chars) = split //;
+    $seen[$_]{$chars[$_]}++ foreach 0..$#chars;
+}
+
+# Assume the least-frequent character is unique and use reverse to flip the
+# hash, then extract that least-frequent character
+say(map { $$_{ (sort { $a <=> $b } keys %$_)[0] } }
+    map { { reverse %$_ } } @seen);
