@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our ($input) = map { chomp; $_ } <>;
+our $output;
+
+while ($input) {
+    $output .= $1 if $input =~ s/^(.*?)(?=\(\d+x\d+\)|$)//;
+    if ($input =~ s/^\((\d+)x(\d+)\)//) {
+        $output .= substr($input, 0, $1, '') x $2;
+    }
+}
+
+say length $output;

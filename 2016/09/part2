@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our ($input) = map { chomp; $_ } <>;
+our (@repetitions) = (1) x length $input;
+
+my $len = 0;
+while ($input) {
+    if ($input =~ s/^(.*?)(?=\(\d+x\d+\)|$)//) {
+        $len += $_ foreach splice(@repetitions, 0, length $1);
+    }
+    if ($input =~ s/^\((\d+)x(\d+)\)//) {
+        splice @repetitions, 0, length $&;
+        $repetitions[$_] *= $2 foreach 0..($1-1);
+    }
+}
+say $len;
