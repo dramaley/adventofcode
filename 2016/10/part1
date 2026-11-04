@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# In the input, bots are numbered 0 to 209. So there will be 209 entries in
+# @rules, with each consisting of a 2-element list, where the elements are
+# references to where to push the low and high inputs. @inputs collects values
+# that are inputs to each bot, and @outputs is where values sent to "output 0",
+# "output 1", and so on, are all collected.
+our (@inputs, @outputs, @rules);
+
+# Parse input
+while (<>) {
+    if (m/^value (\d+) goes to bot (\d+)$/) {
+        push @{$inputs[$2]}, int $1;
+    } elsif (m/^bot (\d+) gives low to (bot|output) (\d+) and high to (bot|output) (\d+)$/) {
+        my $lo = $2 eq 'bot' ? \@{$inputs[$3]} : \@{$outputs[$3]};
+        my $hi = $4 eq 'bot' ? \@{$inputs[$5]} : \@{$outputs[$5]};
+        $rules[$1] = [$lo, $hi];
+    } else {
+        die "Unrecognized input \"$_\:";
+    }
+}
+
+# Run the simulation for as long as there are bots with 2 inputs to process
+while (my @index_queue = grep { @{$inputs[$_]} > 1 } 0..$#inputs) {
+    foreach my $i (@index_queue) {
+        # Get the low and high inputs
+        my ($lo, $hi) = sort { $a <=> $b } splice @{$inputs[$i]}, 0, 2;
+        # Send them to their respective destinations
+        push @{$rules[$i][0]}, $lo;
+        push @{$rules[$i][1]}, $hi;
+
+        # Part 1 end condition
+        if ($lo == 17 and $hi == 61) {
+            say $i;
+            exit;
+        }
+    }
+}
