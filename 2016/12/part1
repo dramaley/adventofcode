@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+our @code;
+our %registers = ('a' => 0, 'b' => 0, 'c' => 0, 'd' => 0);
+our $instptr = 0;       # Instruction pointer
+
+# ------------------------------------------------------------------------------
+#  Opcode definitions
+# ------------------------------------------------------------------------------
+
+# Single-argument instructions -- these always take a register as the argument
+sub dec ($x) { $registers{$x}--; $instptr++; }
+sub inc ($x) { $registers{$x}++; $instptr++; }
+
+# Dual-argument instructions
+sub cpy ($x, $y) { $registers{$y} = &get($x); $instptr++; }
+sub jnz ($x, $y) { $instptr += (&get($x) != 0 ? $y : 1); }
+
+# ------------------------------------------------------------------------------
+#  Figure out if an argument refers to a register or a direct value and return
+#  whatever the value is
+# ------------------------------------------------------------------------------
+sub get ($thingy) {
+    if ($thingy =~ m/^([a-z]+)$/) {
+        return $registers{$1} // 0;
+    }
+    if ($thingy =~ m/^-?\d+$/) {
+        return int $thingy;
+    }
+    die "Unrecognized: ${thingy}";
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+while (<>) {
+    chomp;
+    my ($opcode, @io) = split /\s+/;
+    push @code, [ \&$opcode, @io ];
+}
+
+while (0 <= $instptr and $instptr <= $#code) {
+    &{$code[$instptr][0]}( @{$code[$instptr]}[1..$#{$code[$instptr]}] );
+}
+
+say $registers{'a'};
