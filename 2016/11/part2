@@ -1,0 +1,147 @@
+#!/usr/bin/perl
+
+use v5.36.0;                # Implies strict + warnings
+use Storable qw/dclone/;    # Deep copy of data structures
+
+# ------------------------------------------------------------------------------
+#  Given a list of things, find all possible pairs. This is the mathematical
+#  combination, often written nCr, with r=2.
+# ------------------------------------------------------------------------------
+sub combine2 (@things) {
+    my @return;
+    for(my $i = 0; $i < $#things; $i++) {
+        for(my $j = $i + 1; $j <= $#things; $j++) {
+            push @return, [ @things[$i,$j] ];
+        }
+    }
+    return @return;
+}
+
+# ------------------------------------------------------------------------------
+#  Check if a given state is valid according to the problem rules: microchips
+#  can only exist on the same floor as generators if they are powered (by their
+#  own generator).
+# ------------------------------------------------------------------------------
+sub is_valid (@floors) {
+    foreach my $this (@floors) {
+        # Get generators and microchips for this floor
+        my ($generators, $microchips) = @{$this}{'generators','microchips'};
+        # No generators, no problem!
+        next if not keys %$generators;
+        # Copy microchips to avoid modifying the original
+        my %hash;
+        @hash{keys %$microchips} = ();
+        # Subtract generators
+        delete @hash{keys %$generators};
+        # If microchips remain without their generator, that's a problem.
+        return 0 if keys %hash;
+    }
+    # Checks passed!
+    return 1;
+}
+
+# ------------------------------------------------------------------------------
+#  Generate a token to represent the current state of what is on each floor.
+#
+#  Note that generator-microchip pairs are interchangeable, so preserving exact
+#  names is not important. Instead map the names to a generic label, uppercase
+#  letters for generators, lowercase for microchips.
+# ------------------------------------------------------------------------------
+sub tokenize ($floor, @floors) {
+    # Get a list of possible tokens; either generators or microchips would work
+    my (@tokens) = map { sort keys %{$floors[$_]{'generators'}} } 0..$#floors;
+    # Map tokens to letters--assumes number of tokens ≤26
+    my %t2l;
+    @t2l{@tokens} = ('A'..'Z');
+
+    # Tokenize each floor
+    my @subtokens = map {
+        my $gens = join('', sort @t2l{ keys %{$floors[$_]{'generators'}} });
+        my $chps = join('', sort @t2l{ keys %{$floors[$_]{'microchips'}} });
+        # floor number, generators (uppercase), microchips (lowercase)
+        $_ . $gens . lc($chps);
+    } 0..$#floors;
+    # Return the combined floor tokens
+    return join(',', "f=${floor}", @subtokens);
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+# Initial conditions (hence the "0"s in the names)
+my @floors0;
+my $floor0 = 0; # Start on the first floor
+
+# Parse input and determine what is on each floor
+my %ordinal2index = ('first' => 0, 'second' => 1, 'third' => 2, 'fourth' => 3);
+while (<>) {
+    m/^The (\w+) floor contains (?:nothing relevant|a (.*))\.$/;
+    my $i = $ordinal2index{$1} // die 'Ordinal not found';
+    my $stuff = $2 // '';
+    # Store lists of microchips and generators as hash keys
+    my @microchips = $stuff =~ m/(\w+)-compatible microchip/g;
+    @{ $floors0[$i]{'microchips'} }{ @microchips } = ();
+    my @generators = $stuff =~ m/(\w+) generator/g;
+    @{ $floors0[$i]{'generators'} }{ @generators } = ();
+}
+
+# Add Part 2 stuff
+@{ $floors0[0]{'generators'} }{ 'dilithium', 'elerium' } = ();
+@{ $floors0[0]{'microchips'} }{ 'dilithium', 'elerium' } = ();
+
+# Breadth-first search
+my @queue = ([0, $floor0, @floors0]);   # Depth, current floor, @floors data
+my %seen;
+while (@queue) {
+    my ($depth, $floor, @floors) = @{ shift @queue };
+
+    # Been here before
+    next if $seen{ &tokenize($floor, @floors) }++;
+
+    # Find the lowest occupied floor
+    my $lowest = 0;
+    $lowest++ while not map { keys %$_ } values %{$floors[$lowest]};
+
+    # The lower floors are all empty... problem solved!
+    if ($lowest == $#floors) {
+        say $depth;
+        last;
+    }
+
+    # Figure out every possible combination of things that could be moved from
+    # the current floor
+    my @combos;
+    foreach my $thingy ('generators', 'microchips') {
+        # Individual generators and microchips
+        push @combos, (map { { $thingy => { $_ => undef } } }
+                       sort keys %{$floors[$floor]{$thingy}});
+        # Any 2 generators or 2 microchips
+        push @combos, (map { { $thingy => { $$_[0] => undef,
+                                              $$_[1] => undef } } }
+                       &combine2(sort keys %{$floors[$floor]{$thingy}}));
+    }
+    # Combinations of 1 generator + 1 microchip (must be paired due to rules)
+    push @combos, (map { { 'generators' => { $_ => undef },
+                           'microchips' => { $_ => undef } } }
+                   grep { exists ${$floors[$floor]{'microchips'}}{$_} }
+                   sort keys %{$floors[$floor]{'generators'}});
+
+    # Try moving each combination to a new floor
+    my @newfloors = (grep { $_ >= $lowest and $_ <= $#floors}
+                     $floor - 1, $floor + 1);
+    while (my $combo = pop @combos) {
+        foreach my $newfloor (@newfloors) {
+            # Make a deep copy of the floors
+            my @newfloors = @{ dclone(\@floors) };
+            # Move the combo to the new floor
+            while (my ($key, $val) = each %$combo) {
+                delete @{$newfloors[$floor]{$key}}{keys %$val};
+                @{$newfloors[$newfloor]{$key}}{keys %$val} = ();
+            }
+            # Add the new state to the queue, if valid
+            push @queue, [$depth+1, $newfloor, @newfloors]
+                if &is_valid(@newfloors);
+        }
+    }
+}
