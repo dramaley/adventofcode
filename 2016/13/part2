@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+
+# Office designer's favorite number
+our $favorite = int <>;
+
+# ------------------------------------------------------------------------------
+#  Determine if coordinates are an open space (0) or a wall (1)
+# ------------------------------------------------------------------------------
+sub is_wall ($col, $row) {
+    # Return cached value
+    state %cache;
+    return $cache{"${col},${row}"} if exists $cache{"${col},${row}"};
+
+    # Out of bounds
+    return 1 if $col < 0 or $row < 0;
+
+    # Calculate whether this location is open
+    # Formula from the problem description
+    my $sum = $col*$col + 3*$col + 2*$col*$row + $row + $row*$row + $favorite;
+    # Count the bits
+    $sum = grep { $_ eq '1' } split //, sprintf('%b', $sum);
+    # Even == open, odd == wall
+    $sum %= 2;
+
+    # Save & return
+    $cache{"${col},${row}"} = $sum;
+    return $sum;
+}
+
+# ------------------------------------------------------------------------------
+#  Main
+# ------------------------------------------------------------------------------
+
+my @queue = ([0, 1, 1]);    # Start position: distance, column, row
+my %seen;
+while (@queue) {
+    my ($distance, $col, $row) = @{ shift @queue };
+
+    # Been here before -- this check is cheaper than &is_wall so do it first
+    next if $seen{"${col},${row}"}++;
+
+    # Hit a wall
+    next if &is_wall($col, $row);
+
+    # Don't go too far
+    next if $distance >= 50;
+
+    # Try neighboring locations
+    push @queue, ([$distance+1, $col-1, $row],
+                  [$distance+1, $col+1, $row],
+                  [$distance+1, $col, $row-1],
+                  [$distance+1, $col, $row+1])
+}
+
+say scalar grep { not &is_wall(split /,/) } keys %seen;
