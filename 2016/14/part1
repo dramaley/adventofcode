@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use v5.36.0;    # Implies strict + warnings
+use Digest::MD5 qw/md5_hex/;
+
+chomp(our $salt = <>);
+
+my $index = 0;
+my @indices;
+my @hashes;
+while (@indices < 64) {                 # Collect indices until we have 64 total
+    my $hash = shift(@hashes) // md5_hex($salt, $index);    # Get the next hash
+    if ($hash =~ m/(\w)\1\1/) {         # Find a character repeated 3 times
+        my $pattern = ($1) x 5;         # ...and save it 5× as the pattern
+        # Populate @hashes with the next 1000 hashes
+        push @hashes, map { md5_hex($salt, $index+$_+1) } scalar(@hashes)..999;
+        # Save the index if the pattern is in those next 1000 hashes
+        push @indices, $index if grep { /${pattern}/ } @hashes;
+    }
+    $index++;
+}
+say $indices[63];
